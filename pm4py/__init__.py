@@ -14,7 +14,8 @@ from pm4py.filtering import filter_log_relative_occurrence_event_attribute, filt
     filter_ocel_object_types_allowed_activities, filter_ocel_object_per_type_count, filter_ocel_start_events_per_object_type, \
     filter_ocel_end_events_per_object_type, filter_ocel_events_timestamp, filter_prefixes, filter_suffixes, filter_trace_segments, \
     filter_four_eyes_principle, filter_activity_done_different_resources, filter_ocel_events, filter_ocel_objects, \
-    filter_ocel_object_types, filter_ocel_cc_object, filter_ocel_cc_length, filter_ocel_cc_otype, filter_ocel_cc_activity
+    filter_ocel_object_types, filter_ocel_cc_object, filter_ocel_cc_length, filter_ocel_cc_otype, filter_ocel_cc_activity, \
+    filter_ocel_activities_connected_object_type
 from pm4py.discovery import discover_petri_net_alpha, discover_petri_net_alpha_plus, discover_petri_net_ilp, discover_petri_net_heuristics, \
     discover_petri_net_inductive, discover_process_tree_inductive, discover_heuristics_net, \
     discover_dfg, discover_footprints, discover_eventually_follows_graph, discover_directly_follows_graph, discover_bpmn_inductive, \
