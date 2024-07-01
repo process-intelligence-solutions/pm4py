@@ -1,0 +1,47 @@
++==============================================================================+
+
+                               /$$$$$$            /$$
+                              /$$__  $$          | $$
+           /$$$$$$$  /$$$$$$ | $$  \__//$$$$$$  /$$$$$$   /$$   /$$
+          /$$_____/ |____  $$| $$$$   /$$__  $$|_  $$_/  | $$  | $$
+         |  $$$$$$   /$$$$$$$| $$_/  | $$$$$$$$  | $$    | $$  | $$
+          \____  $$ /$$__  $$| $$    | $$_____/  | $$ /$$| $$  | $$
+          /$$$$$$$/|  $$$$$$$| $$    |  $$$$$$$  |  $$$$/|  $$$$$$$
+         |_______/  \_______/|__/     \_______/   \___/   \____  $$
+                                                          /$$  | $$
+                                                         |  $$$$$$/
+  by safetycli.com                                        \______/
+
++==============================================================================+
+
+ REPORT 
+
+  Safety is using PyUp's free open-source vulnerability database. This
+data is 30 days old and limited. 
+  For real-time enhanced vulnerability data, fix recommendations, severity
+reporting, cybersecurity support, team and project policy management and more
+sign up at https://pyup.io or email sales@pyup.io
+
+  Safety v3.1.0 is scanning for Vulnerabilities...
+  Scanning dependencies in your files:
+
+  -> requirements_stable.txt
+
+  Using open-source vulnerability database
+  Found and scanned 26 packages
+  Timestamp 2024-07-01 06:38:05
+  0 vulnerabilities reported
+  0 vulnerabilities ignored
++==============================================================================+
+
+ No known security vulnerabilities reported. 
+
++==============================================================================+
+
+  Safety is using PyUp's free open-source vulnerability database. This
+data is 30 days old and limited. 
+  For real-time enhanced vulnerability data, fix recommendations, severity
+reporting, cybersecurity support, team and project policy management and more
+sign up at https://pyup.io or email sales@pyup.io
+
++==============================================================================+

@@ -1002,8 +1002,12 @@ def apply_log(log, net, initial_marking, final_marking, enable_pltr_fitness=Fals
 
     notexisting_activities_in_model = {}
 
+    # update 23/04/2024 (removing undeterminism with duplicate transitions)
+    # transitions are now fired as follows:
+    # - (from a previous update on 14/10/2020) it is checked if in the current market any transition having as label the current activity is enabled. If that's true, then the given transition is fired
+    # - otherwise, if there are no corresponding transitions enabled in the current marking, the TBR tries to enable with invisibles always the same transition (removing undeterminism)
     trans_map = {}
-    for t in net.transitions:
+    for t in sorted(list(net.transitions), key=lambda x: x.name):
         trans_map[t.label] = t
 
     if pandas_utils.check_is_pandas_dataframe(log):

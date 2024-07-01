@@ -1,8 +1,5 @@
 image: docker:git
 
-variables:
-  REMOTE_REPO: git@gitlab.fit.fraunhofer.de:process-mining/pm4py-industry-partners/pm4py-core-proprietary.git
-
 stages:
   - test
   - deploy
@@ -13,38 +10,3 @@ dummy-test:
   stage: test
   script:
     - echo "Execute tests, once they exist"
-
-
-# Pushes ONLY the release branch to the industry partners repository. For this to work these steps are necessary:
-# 1) In the TARGET repo, create a deploy key (with WRITE permissions), e.g. using the command
-#    'ssh-keygen -t rsa -b 4096 -C "gitlab-ci"', and in the GitLab repository settings -> "Protected branches", allow
-#    this deploy key to push to the "release" branch
-# 2) In THIS repo, create the GitLab CI/CD variables SSH_PRIVATE_KEY and SSH_PUBLIC_KEY (of type FILE), having the
-#    values of the deploy token you created in step 1
-push-release-branch:
-  stage: deploy
-  rules:
-    # Avoid an infinite CI loop, by only running this job in the original source repository
-    # Note: unfortunately, GitLab's regular expressions don't seem to work properly for $CI_PROJECT_URL
-    # (even when escaping forward-slashes), in other words, something like
-    # - if: '$CI_PROJECT_URL =~ /^https:\/\/gitlab.fit.fraunhofer.de\/process-mining\/pm4py-industry-partners.*/'
-    #   when: never
-    # does NOT work, for unknown reasons.
-    - if: '$CI_COMMIT_BRANCH == "DISABLED" && $CI_PROJECT_URL == "https://gitlab.fit.fraunhofer.de/process-mining/pm4py/pm4py-core"'
-  script:
-    # The runner checks out a detached(!) head, which we cannot push -> we need to switch to "release" explicitly
-    - git checkout release
-    # GitLab does a shallow clone, which we cannot push -> we need to unshallow the repo to be able to push to another repo
-    - git fetch --unshallow
-    - git remote add target "$REMOTE_REPO"
-    # Install SSH agent, but only if necessary
-    - which ssh-agent || ( apt-get update -qy && apt-get install openssh-client -qqy )
-    - eval `ssh-agent -s`
-    - chmod 600 "$SSH_PRIVATE_KEY"
-    - ssh-add "$SSH_PRIVATE_KEY"
-    - mkdir -p ~/.ssh
-    - chmod 700 ~/.ssh
-    - 'mv "$SSH_PUBLIC_KEY" ~/.ssh/id_rsa.pub'
-    - 'echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
-    - git push target release
-

@@ -322,6 +322,7 @@ def import_log(filename, parameters=None):
             f = open(filename, "rb")
         context = etree.iterparse(f, events=[_EVENT_START, _EVENT_END], encoding=encoding)
         num_traces = count_traces(context)
+        f.close()
     else:
         # avoid the iteration to calculate the number of traces is "tqdm" is not used
         num_traces = 0
@@ -381,6 +382,8 @@ def import_from_string(log_string, parameters=None):
             s = b
         context = etree.iterparse(s, events=[_EVENT_START, _EVENT_END], encoding=encoding)
         num_traces = count_traces(context)
+        s.close()
+        b.close()
     else:
         # avoid the iteration to calculate the number of traces is "tqdm" is not used
         num_traces = 0
@@ -392,8 +395,10 @@ def import_from_string(log_string, parameters=None):
     else:
         s = b
     context = etree.iterparse(s, events=[_EVENT_START, _EVENT_END], encoding=encoding)
-
-    return import_from_context(context, num_traces, parameters=parameters)
+    log = import_from_context(context, num_traces, parameters=parameters)
+    s.close()
+    b.close()
+    return log
 
 
 def __parse_attribute(elem, store, key, value, tree):

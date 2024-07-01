@@ -1054,17 +1054,21 @@ class SimplifiedInterfaceTest(unittest.TestCase):
         dataframe = pandas_utils.read_csv("input_data/running-example-transformed.csv")
         dataframe = dataframe_utils.convert_timestamp_columns_in_df(dataframe, timest_format=constants.DEFAULT_TIMESTAMP_PARSE_FORMAT, timest_columns=["Timestamp"])
         dataframe["CaseID"] = dataframe["CaseID"].astype("string")
-        target = os.path.join("test_output_data", "case_duration.svg")
-        pm4py.save_vis_case_duration_graph(dataframe, target, activity_key="Activity", case_id_key="CaseID", timestamp_key="Timestamp")
-        os.remove(target)
+
+        if importlib.util.find_spec("matplotlib"):
+            target = os.path.join("test_output_data", "case_duration.svg")
+            pm4py.save_vis_case_duration_graph(dataframe, target, activity_key="Activity", case_id_key="CaseID", timestamp_key="Timestamp")
+            os.remove(target)
 
     def test_vis_ev_distr_graph_df(self):
         dataframe = pandas_utils.read_csv("input_data/running-example-transformed.csv")
         dataframe = dataframe_utils.convert_timestamp_columns_in_df(dataframe, timest_format=constants.DEFAULT_TIMESTAMP_PARSE_FORMAT, timest_columns=["Timestamp"])
         dataframe["CaseID"] = dataframe["CaseID"].astype("string")
         target = os.path.join("test_output_data", "ev_distr_graph.svg")
-        pm4py.save_vis_events_distribution_graph(dataframe, target, activity_key="Activity", case_id_key="CaseID", timestamp_key="Timestamp")
-        os.remove(target)
+
+        if importlib.util.find_spec("matplotlib"):
+            pm4py.save_vis_events_distribution_graph(dataframe, target, activity_key="Activity", case_id_key="CaseID", timestamp_key="Timestamp")
+            os.remove(target)
 
     def test_ocel_object_graph(self):
         ocel = pm4py.read_ocel("input_data/ocel/example_log.jsonocel")

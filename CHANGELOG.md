@@ -20,6 +20,12 @@
 ### Fixed
 * 954c2fbdc258b90bcba85001592a5d2950a79724
   * bug fix temporal profile conformance checking
+* cd8f9fb9f49a5955f0a26f547770aefa8ff222b8
+  * issue with closing in-memory files when parsing a XES from string
+* d51bd9e24aed442f011917d6b77793b118bbf89f
+  * minor fix OCEL interleavings computation
+* 39d769cad1327c47d5948b0c40be4a90e41fcce7
+  * removed indeterminism in TBR with duplicate transitions
 
 ### Removed
 
@@ -28,7 +34,8 @@
   * printing Python versions in tests and examples
 * c48882b88326608dc5c6a4101b8123c71a852e18
   * parameter to enable/disable visualizations
-
+* 607d2eb601299a23335f8c1976cc59f63bcae5f2
+  * added example for Inductive Miner LC
 
 ---
 

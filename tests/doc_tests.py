@@ -966,10 +966,11 @@ class DocTests(unittest.TestCase):
         x, y = case_statistics.get_kde_caseduration(log, parameters={
             constants.PARAMETER_CONSTANT_TIMESTAMP_KEY: "time:timestamp"})
 
-        from pm4py.visualization.graphs import visualizer as graphs_visualizer
+        if importlib.util.find_spec("matplotlib"):
+            from pm4py.visualization.graphs import visualizer as graphs_visualizer
 
-        gviz = graphs_visualizer.apply_plot(x, y, variant=graphs_visualizer.Variants.CASES)
-        gviz = graphs_visualizer.apply_semilogx(x, y, variant=graphs_visualizer.Variants.CASES)
+            gviz = graphs_visualizer.apply_plot(x, y, variant=graphs_visualizer.Variants.CASES)
+            gviz = graphs_visualizer.apply_semilogx(x, y, variant=graphs_visualizer.Variants.CASES)
 
     def test_distr_num_attribute(self):
         import os
@@ -982,13 +983,14 @@ class DocTests(unittest.TestCase):
 
         x, y = attributes_filter.get_kde_numeric_attribute(log, "amount")
 
-        from pm4py.visualization.graphs import visualizer as graphs_visualizer
+        if importlib.util.find_spec("matplotlib"):
+            from pm4py.visualization.graphs import visualizer as graphs_visualizer
 
-        gviz = graphs_visualizer.apply_plot(x, y, variant=graphs_visualizer.Variants.ATTRIBUTES)
+            gviz = graphs_visualizer.apply_plot(x, y, variant=graphs_visualizer.Variants.ATTRIBUTES)
 
-        from pm4py.visualization.graphs import visualizer as graphs_visualizer
+            from pm4py.visualization.graphs import visualizer as graphs_visualizer
 
-        gviz = graphs_visualizer.apply_semilogx(x, y, variant=graphs_visualizer.Variants.ATTRIBUTES)
+            gviz = graphs_visualizer.apply_semilogx(x, y, variant=graphs_visualizer.Variants.ATTRIBUTES)
 
     def test_evaluation(self):
         import os
