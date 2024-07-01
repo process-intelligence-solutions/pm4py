@@ -193,7 +193,8 @@ def sort_dfg_reachability(dfg: List[Tuple[str, str]],
 
 def graphviz_visualization(activities_count, dfg, image_format="png", measure="frequency",
                            max_no_of_edges_in_diagram=100000, start_activities=None, end_activities=None, serv_time=None,
-                           font_size="12", bgcolor=constants.DEFAULT_BGCOLOR, rankdir=constants.DEFAULT_RANKDIR_GVIZ):
+                           font_size="12", bgcolor=constants.DEFAULT_BGCOLOR, rankdir=constants.DEFAULT_RANKDIR_GVIZ,
+                           enable_graph_title: bool = constants.DEFAULT_ENABLE_GRAPH_TITLES, graph_title: str = "Directly-Follows Graph"):
     """
     Do GraphViz visualization of a DFG graph
 
@@ -221,6 +222,10 @@ def graphviz_visualization(activities_count, dfg, image_format="png", measure="f
         Background color of the visualization (i.e., 'transparent', 'white', ...)
     rankdir
         Direction of the graph ("LR" for left-to-right; "TB" for top-to-bottom)
+    enable_graph_title
+        Enables the visualization of a graph's title
+    graph_title
+        Graph title to display (if enable_graph_title)
 
     Returns
     -----------
@@ -236,6 +241,9 @@ def graphviz_visualization(activities_count, dfg, image_format="png", measure="f
     filename.close()
 
     viz = Digraph("", filename=filename.name, engine='dot', graph_attr={'bgcolor': bgcolor, 'rankdir': rankdir})
+
+    if enable_graph_title:
+        viz.attr(label='<<FONT POINT-SIZE="'+str(2*int(font_size))+'">'+graph_title+'</FONT>>', labelloc="top")
 
     # first, remove edges in diagram that exceeds the maximum number of edges in the diagram
     dfg_key_value_list = []
