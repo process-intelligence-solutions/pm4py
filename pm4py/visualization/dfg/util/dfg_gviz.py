@@ -251,9 +251,6 @@ def graphviz_visualization(activities_count, dfg, image_format="png", measure="f
         if edge not in dfg_allowed_keys:
             del dfg[edge]
 
-    # calculate edges penwidth
-    penwidth = assign_penwidth_edges(dfg)
-
     activities_count_int = copy(activities_count)
 
     activities_in_dfg = set(activities_count)
@@ -275,6 +272,9 @@ def graphviz_visualization(activities_count, dfg, image_format="png", measure="f
 
     start_activities_to_include = [act for act in start_activities if act in activities_to_include]
     end_activities_to_include = [act for act in end_activities if act in activities_to_include]
+
+    # calculate edges penwidth
+    penwidth = assign_penwidth_edges(dfg)
 
     dfg_edges = sorted(list(dfg.keys()))
     if start_activities_to_include and end_activities_to_include:
