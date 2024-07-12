@@ -7,6 +7,7 @@ from pm4py.objects.ocel.util import names_stripping
 from enum import Enum
 from pm4py.util import exec_utils, pandas_utils
 from pm4py.objects.ocel.util import ocel_consistency
+from pm4py.objects.ocel.util import filtering_utils
 
 
 class Parameters(Enum):
@@ -25,6 +26,7 @@ def apply(ocel: OCEL, file_path: str, parameters: Optional[Dict[Any, Any]] = Non
         os.remove(file_path)
 
     ocel = ocel_consistency.apply(ocel, parameters=parameters)
+    ocel = filtering_utils.propagate_relations_filtering(ocel, parameters=parameters)
 
     event_id = ocel.event_id_column
     event_activity = ocel.event_activity

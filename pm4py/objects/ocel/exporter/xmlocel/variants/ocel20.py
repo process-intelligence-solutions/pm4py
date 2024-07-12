@@ -9,6 +9,7 @@ from pm4py.objects.ocel.obj import OCEL
 from pm4py.util import exec_utils, constants as pm4_constants
 from pm4py.objects.ocel.util import ocel_consistency
 from pm4py.objects.ocel.util import attributes_per_type
+from pm4py.objects.ocel.util import filtering_utils
 
 
 class Parameters(Enum):
@@ -39,6 +40,7 @@ def apply(ocel: OCEL, target_path: str, parameters: Optional[Dict[Any, Any]] = N
     changed_field_column = exec_utils.get_param_value(Parameters.CHANGED_FIELD, parameters, ocel.changed_field)
 
     ocel = ocel_consistency.apply(ocel, parameters=parameters)
+    ocel = filtering_utils.propagate_relations_filtering(ocel, parameters=parameters)
 
     objects0 = ocel.objects.to_dict("records")
     events0 = ocel.events.to_dict("records")

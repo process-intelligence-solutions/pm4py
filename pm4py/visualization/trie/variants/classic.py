@@ -11,6 +11,8 @@ from pm4py.util import exec_utils, constants
 class Parameters(Enum):
     FORMAT = "format"
     BGCOLOR = "bgcolor"
+    ENABLE_GRAPH_TITLE = "enable_graph_title"
+    GRAPH_TITLE = "graph_title"
 
 
 def draw_recursive(trie_node: Trie, parent: Union[str, None], gviz: Graph):
@@ -58,11 +60,17 @@ def apply(trie: Trie, parameters: Optional[Dict[Union[str, Parameters], Any]] = 
     image_format = exec_utils.get_param_value(Parameters.FORMAT, parameters, "png")
     bgcolor = exec_utils.get_param_value(Parameters.BGCOLOR, parameters, constants.DEFAULT_BGCOLOR)
 
+    enable_graph_title = exec_utils.get_param_value(Parameters.ENABLE_GRAPH_TITLE, parameters, constants.DEFAULT_ENABLE_GRAPH_TITLES)
+    graph_title = exec_utils.get_param_value(Parameters.GRAPH_TITLE, parameters, "Prefix Tree")
+
     filename = tempfile.NamedTemporaryFile(suffix='.gv')
     filename.close()
     
     viz = Graph("pt", filename=filename.name, engine='dot', graph_attr={'bgcolor': bgcolor})
     viz.attr('node', shape='ellipse', fixedsize='false')
+
+    if enable_graph_title:
+        viz.attr(label='<<FONT POINT-SIZE="20">'+graph_title+'</FONT>>', labelloc="top")
 
     draw_recursive(trie, None, viz)
 

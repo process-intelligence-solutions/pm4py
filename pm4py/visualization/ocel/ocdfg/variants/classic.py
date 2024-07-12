@@ -18,6 +18,8 @@ class Parameters(Enum):
     EDGE_THRESHOLD = "edge_threshold"
     ANNOTATION = "annotation"
     PERFORMANCE_AGGREGATION_MEASURE = "aggregationMeasure"
+    ENABLE_GRAPH_TITLE = "enable_graph_title"
+    GRAPH_TITLE = "graph_title"
 
 
 def ot_to_color(ot: str) -> str:
@@ -167,6 +169,8 @@ def apply(ocdfg: Dict[str, Any], parameters: Optional[Dict[Any, Any]] = None) ->
     annotation = exec_utils.get_param_value(Parameters.ANNOTATION, parameters, "frequency")
     performance_aggregation_measure = exec_utils.get_param_value(Parameters.PERFORMANCE_AGGREGATION_MEASURE, parameters,
                                                                  "mean")
+    enable_graph_title = exec_utils.get_param_value(Parameters.ENABLE_GRAPH_TITLE, parameters, constants.DEFAULT_ENABLE_GRAPH_TITLES)
+    graph_title = exec_utils.get_param_value(Parameters.GRAPH_TITLE, parameters, "Object-Centric DFG")
 
     act_count = {}
     act_ot_count = {}
@@ -216,6 +220,9 @@ def apply(ocdfg: Dict[str, Any], parameters: Optional[Dict[Any, Any]] = None) ->
 
     viz = Digraph("ocdfg", filename=filename.name, engine='dot', graph_attr={'bgcolor': bgcolor})
     viz.attr('node', shape='ellipse', fixedsize='false')
+
+    if enable_graph_title:
+        viz.attr(label='<<FONT POINT-SIZE="20">'+graph_title+'</FONT>>', labelloc="top")
 
     min_edges_count = {}
     max_edges_count = {}

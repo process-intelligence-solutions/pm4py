@@ -12,6 +12,8 @@ class Parameters(Enum):
     FORCE_NAMES = "force_names"
     FILLCOLORS = "fillcolors"
     FONT_SIZE = "font_size"
+    ENABLE_GRAPH_TITLE = "enable_graph_title"
+    GRAPH_TITLE = "graph_title"
 
 
 def apply(tsys: TransitionSystem, parameters: Optional[Dict[Union[str, Parameters], Any]] = None) -> graphviz.Digraph:

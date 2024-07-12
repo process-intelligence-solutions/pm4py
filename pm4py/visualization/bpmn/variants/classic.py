@@ -18,6 +18,8 @@ class Parameters(Enum):
     ENABLE_SWIMLANES = "enable_swimlanes"
     INCLUDE_NAME_IN_EVENTS = "include_name_in_events"
     SWIMLANES_MARGIN = "swimlanes_margin"
+    ENABLE_GRAPH_TITLE = "enable_graph_title"
+    GRAPH_TITLE = "graph_title"
 
 
 def add_bpmn_node(graph, n, font_size, include_name_in_events):
@@ -82,12 +84,17 @@ def apply(bpmn_graph: BPMN, parameters: Optional[Dict[Any, Any]] = None) -> grap
     include_name_in_events = exec_utils.get_param_value(Parameters.INCLUDE_NAME_IN_EVENTS, parameters, True)
     swimlanes_margin = exec_utils.get_param_value(Parameters.SWIMLANES_MARGIN, parameters, 35)
     swimlanes_margin = str(swimlanes_margin)
+    enable_graph_title = exec_utils.get_param_value(Parameters.ENABLE_GRAPH_TITLE, parameters, constants.DEFAULT_ENABLE_GRAPH_TITLES)
+    graph_title = exec_utils.get_param_value(Parameters.GRAPH_TITLE, parameters, "BPMN Diagram")
 
     filename = tempfile.NamedTemporaryFile(suffix='.gv')
     filename.close()
 
     viz = Digraph("", filename=filename.name, engine='dot', graph_attr={'bgcolor': bgcolor})
     viz.graph_attr['rankdir'] = rankdir
+
+    if enable_graph_title:
+        viz.attr(label='<<FONT POINT-SIZE="'+str(2*int(font_size))+'">'+graph_title+'</FONT>>', labelloc="top")
 
     nodes, edges = get_sorted_nodes_edges(bpmn_graph)
     process_ids = []

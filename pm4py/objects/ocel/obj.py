@@ -4,6 +4,7 @@ from pm4py.objects.ocel import constants
 from pm4py.util import exec_utils, pandas_utils
 import pandas as pd
 import numpy as np
+from collections import Counter
 from copy import copy, deepcopy
 
 
@@ -18,7 +19,8 @@ class Parameters(Enum):
 
 
 class OCEL(object):
-    def __init__(self, events=None, objects=None, relations=None, globals=None, parameters=None, o2o=None, e2e=None, object_changes=None):
+    def __init__(self, events=None, objects=None, relations=None, globals=None, parameters=None, o2o=None, e2e=None,
+                 object_changes=None):
         if parameters is None:
             parameters = {}
 
@@ -33,10 +35,12 @@ class OCEL(object):
         self.event_timestamp = exec_utils.get_param_value(Parameters.EVENT_TIMESTAMP, parameters,
                                                           constants.DEFAULT_EVENT_TIMESTAMP)
         self.qualifier = exec_utils.get_param_value(Parameters.QUALIFIER, parameters, constants.DEFAULT_QUALIFIER)
-        self.changed_field = exec_utils.get_param_value(Parameters.CHANGED_FIELD, parameters, constants.DEFAULT_CHNGD_FIELD)
+        self.changed_field = exec_utils.get_param_value(Parameters.CHANGED_FIELD, parameters,
+                                                        constants.DEFAULT_CHNGD_FIELD)
 
         if events is None:
-            events = pandas_utils.instantiate_dataframe({self.event_id_column: [], self.event_activity: [], self.event_timestamp: []})
+            events = pandas_utils.instantiate_dataframe(
+                {self.event_id_column: [], self.event_activity: [], self.event_timestamp: []})
         if objects is None:
             objects = pandas_utils.instantiate_dataframe({self.object_id_column: [], self.object_type_column: []})
         if relations is None:
@@ -46,11 +50,15 @@ class OCEL(object):
         if globals is None:
             globals = {}
         if o2o is None:
-            o2o = pandas_utils.instantiate_dataframe({self.object_id_column: [], self.object_id_column+"_2": [], self.qualifier: []})
+            o2o = pandas_utils.instantiate_dataframe(
+                {self.object_id_column: [], self.object_id_column + "_2": [], self.qualifier: []})
         if e2e is None:
-            e2e = pandas_utils.instantiate_dataframe({self.event_id_column: [], self.event_id_column+"_2": [], self.qualifier: []})
+            e2e = pandas_utils.instantiate_dataframe(
+                {self.event_id_column: [], self.event_id_column + "_2": [], self.qualifier: []})
         if object_changes is None:
-            object_changes = pandas_utils.instantiate_dataframe({self.object_id_column: [], self.object_type_column: [], self.event_timestamp: [], self.changed_field: []})
+            object_changes = pandas_utils.instantiate_dataframe(
+                {self.object_id_column: [], self.object_type_column: [], self.event_timestamp: [],
+                 self.changed_field: []})
         if self.qualifier not in relations:
             relations[self.qualifier] = [None] * len(relations)
 
@@ -90,10 +98,13 @@ class OCEL(object):
         ret.append(", number of object types: %d" % (self.objects[self.object_type_column].nunique()))
         ret.append(", events-objects relationships: %d)" % (len(self.relations)))
         ret.append("\n")
-        ret.append("Activities occurrences: " + str(self.events[self.event_activity].value_counts().to_dict()))
+        ret.append("Activities occurrences: " + str(Counter(self.events[self.event_activity].value_counts().to_dict())))
         ret.append("\n")
         ret.append("Object types occurrences (number of objects): " + str(
-            self.objects[self.object_type_column].value_counts().to_dict()))
+            Counter(self.objects[self.object_type_column].value_counts().to_dict())))
+        ret.append("\n")
+        ret.append("Unique activities per object type: " + str(
+            Counter(self.relations.groupby(self.object_type_column)[self.event_activity].nunique().to_dict())))
         ret.append("\n")
         ret.append(
             "Please use <THIS>.get_extended_table() to get a dataframe representation of the events related to the objects.")
@@ -102,7 +113,8 @@ class OCEL(object):
     def is_ocel20(self):
         unique_qualifiers = []
         if self.qualifier in self.relations.columns:
-            unique_qualifiers = [x for x in pandas_utils.format_unique(self.relations[self.qualifier].unique()) if not self.__check_is_nan(x)]
+            unique_qualifiers = [x for x in pandas_utils.format_unique(self.relations[self.qualifier].unique()) if
+                                 not self.__check_is_nan(x)]
 
         return len(self.o2o) > 0 or len(self.object_changes) > 0 or len(unique_qualifiers) > 0
 
@@ -122,7 +134,8 @@ class OCEL(object):
         return str(self.get_summary())
 
     def __copy__(self):
-        return OCEL(self.events, self.objects, self.relations, copy(self.globals), copy(self.parameters), copy(self.o2o), copy(self.e2e), copy(self.object_changes))
+        return OCEL(self.events, self.objects, self.relations, copy(self.globals), copy(self.parameters),
+                    copy(self.o2o), copy(self.e2e), copy(self.object_changes))
 
     def __deepcopy__(self, memo):
         return OCEL(self.events.copy(), self.objects.copy(), self.relations.copy(), deepcopy(self.globals),

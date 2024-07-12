@@ -12,6 +12,8 @@ class Parameters(Enum):
     FORMAT = "format"
     BGCOLOR = "bgcolor"
     RANKDIR = "rankdir"
+    ENABLE_GRAPH_TITLE = "enable_graph_title"
+    GRAPH_TITLE = "graph_title"
 
 
 def ot_to_color(ot: str) -> str:
@@ -54,11 +56,17 @@ def apply(ocpn: Dict[str, Any], parameters: Optional[Dict[Any, Any]] = None) -> 
     bgcolor = exec_utils.get_param_value(Parameters.BGCOLOR, parameters, constants.DEFAULT_BGCOLOR)
     rankdir = exec_utils.get_param_value(Parameters.RANKDIR, parameters, constants.DEFAULT_RANKDIR_GVIZ)
 
+    enable_graph_title = exec_utils.get_param_value(Parameters.ENABLE_GRAPH_TITLE, parameters, constants.DEFAULT_ENABLE_GRAPH_TITLES)
+    graph_title = exec_utils.get_param_value(Parameters.GRAPH_TITLE, parameters, "Object-Centric Petri net")
+
     filename = tempfile.NamedTemporaryFile(suffix='.gv')
     filename.close()
 
-    viz = Digraph("ocdfg", filename=filename.name, engine='dot', graph_attr={'bgcolor': bgcolor})
+    viz = Digraph("ocpn", filename=filename.name, engine='dot', graph_attr={'bgcolor': bgcolor})
     viz.attr('node', shape='ellipse', fixedsize='false')
+
+    if enable_graph_title:
+        viz.attr(label='<<FONT POINT-SIZE="20">'+graph_title+'</FONT>>', labelloc="top")
 
     activities_map = {}
     transition_map = {}

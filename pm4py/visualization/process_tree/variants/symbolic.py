@@ -18,6 +18,8 @@ class Parameters(Enum):
     FONT_SIZE = "font_size"
     BGCOLOR = "bgcolor"
     RANKDIR = "rankdir"
+    ENABLE_GRAPH_TITLE = "enable_graph_title"
+    GRAPH_TITLE = "graph_title"
 
 
 def get_color(node, color_map):
@@ -84,9 +86,16 @@ def apply(tree: ProcessTree, parameters: Optional[Dict[Union[str, Parameters], A
 
     bgcolor = exec_utils.get_param_value(Parameters.BGCOLOR, parameters, constants.DEFAULT_BGCOLOR)
     rankdir = exec_utils.get_param_value(Parameters.RANKDIR, parameters, constants.DEFAULT_RANKDIR_GVIZ)
+    enable_graph_title = exec_utils.get_param_value(Parameters.ENABLE_GRAPH_TITLE, parameters, constants.DEFAULT_ENABLE_GRAPH_TITLES)
+    graph_title = exec_utils.get_param_value(Parameters.GRAPH_TITLE, parameters, "Process Tree")
+    font_size = exec_utils.get_param_value(Parameters.FONT_SIZE, parameters, 15)
+    font_size = str(font_size)
 
     viz = Graph("pt", filename=filename.name, engine='dot', graph_attr={'bgcolor': bgcolor, "rankdir": rankdir})
     viz.attr('node', shape='ellipse', fixedsize='false')
+
+    if enable_graph_title:
+        viz.attr(label='<<FONT POINT-SIZE="'+str(2*int(font_size))+'">'+graph_title+'</FONT>>', labelloc="top")
 
     image_format = exec_utils.get_param_value(Parameters.FORMAT, parameters, "png")
     color_map = exec_utils.get_param_value(Parameters.COLOR_MAP, parameters, {})

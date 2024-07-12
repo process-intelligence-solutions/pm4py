@@ -9,6 +9,7 @@ from pm4py.objects.ocel.exporter.util import clean_dataframes
 from pm4py.objects.ocel.obj import OCEL
 from pm4py.objects.ocel.util import attributes_names
 from pm4py.objects.ocel.util import related_objects
+from pm4py.objects.ocel.util import filtering_utils
 from pm4py.util import exec_utils, constants as pm4_constants, pandas_utils
 from pm4py.objects.ocel.util import ocel_consistency
 
@@ -101,6 +102,7 @@ def apply(ocel: OCEL, target_path: str, parameters: Optional[Dict[Any, Any]] = N
     encoding = exec_utils.get_param_value(Parameters.ENCODING, parameters, pm4_constants.DEFAULT_ENCODING)
 
     ocel = ocel_consistency.apply(ocel, parameters=parameters)
+    ocel = filtering_utils.propagate_relations_filtering(ocel, parameters=parameters)
 
     base_object = get_base_json_object(ocel, parameters=parameters)
 

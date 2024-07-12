@@ -6,6 +6,7 @@ from pm4py.objects.ocel import constants
 from pm4py.objects.ocel.obj import OCEL
 from pm4py.util import exec_utils, constants as pm4_constants
 from pm4py.objects.ocel.util import ocel_consistency
+from pm4py.objects.ocel.util import filtering_utils
 from pm4py.objects.ocel.exporter.jsonocel.variants import classic
 from pm4py.objects.ocel.util import attributes_per_type
 
@@ -27,6 +28,7 @@ def get_enriched_object(ocel: OCEL, parameters: Optional[Dict[Any, Any]] = None)
     event_timestamp = exec_utils.get_param_value(Parameters.EVENT_TIMESTAMP, parameters, ocel.event_timestamp)
 
     ocel = ocel_consistency.apply(ocel, parameters=parameters)
+    ocel = filtering_utils.propagate_relations_filtering(ocel, parameters=parameters)
 
     base_object = classic.get_base_json_object(ocel, parameters=parameters)
 
