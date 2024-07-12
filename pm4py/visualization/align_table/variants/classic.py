@@ -2,7 +2,7 @@ from graphviz import Source
 import tempfile
 
 from pm4py.statistics.variants.log import get as variants_get
-from pm4py.util import exec_utils
+from pm4py.util import exec_utils, constants
 from enum import Enum
 from typing import Optional, Dict, Any
 from pm4py.objects.log.obj import EventLog
@@ -12,6 +12,8 @@ import graphviz
 
 class Parameters(Enum):
     FORMAT = "format"
+    ENABLE_GRAPH_TITLE = "enable_graph_title"
+    GRAPH_TITLE = "graph_title"
 
 
 def apply(log: EventLog, aligned_traces: typing.ListAlignments, parameters: Optional[Dict[Any, Any]] = None) -> graphviz.Source:
@@ -43,8 +45,18 @@ def apply(log: EventLog, aligned_traces: typing.ListAlignments, parameters: Opti
     variants_idx_list = sorted(variants_idx_list, key=lambda x: len(x[1]), reverse=True)
 
     image_format = exec_utils.get_param_value(Parameters.FORMAT, parameters, "png")
+    enable_graph_title = exec_utils.get_param_value(Parameters.ENABLE_GRAPH_TITLE, parameters, constants.DEFAULT_ENABLE_GRAPH_TITLES)
+    graph_title = exec_utils.get_param_value(Parameters.GRAPH_TITLE, parameters, "Alignments")
 
-    table_alignments_list = ["digraph {\n", "tbl [\n", "shape=plaintext\n", "label=<\n"]
+    table_alignments_list = ["digraph {\n"]
+
+    if enable_graph_title:
+        table_alignments_list.append('label=<<FONT POINT-SIZE="20">'+graph_title+'</FONT>>;\nlabelloc="top";\n')
+
+    table_alignments_list.append("tbl [\n")
+    table_alignments_list.append("shape=plaintext\n")
+    table_alignments_list.append("label=<\n")
+
     table_alignments_list.append("<table border='0' cellborder='1' color='blue' cellspacing='0'>\n")
 
     table_alignments_list.append("<tr><td>Variant</td><td>Alignment</td></tr>\n")
@@ -79,6 +91,7 @@ def apply(log: EventLog, aligned_traces: typing.ListAlignments, parameters: Opti
     filename.close()
 
     gviz = Source(table_alignments, filename=filename.name)
+
     gviz.format = image_format
 
     return gviz

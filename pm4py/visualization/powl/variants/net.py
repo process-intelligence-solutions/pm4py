@@ -5,8 +5,9 @@ from pm4py.objects.powl.obj import POWL
 from enum import Enum
 import tempfile
 import graphviz
+from typing import Optional, Dict, Any
 from graphviz import Digraph
-from pm4py.util import constants
+from pm4py.util import constants, exec_utils
 from pm4py.objects.bpmn.obj import BPMN
 from pm4py.objects.bpmn.util.sorting import get_sorted_nodes_edges
 from pm4py.objects.conversion.powl.converter import apply as powl_to_pn
@@ -17,6 +18,8 @@ class Parameters(Enum):
     FORMAT = "format"
     RANKDIR = "rankdir"
     BGCOLOR = "bgcolor"
+    ENABLE_GRAPH_TITLE = "enable_graph_title"
+    GRAPH_TITLE = "graph_title"
 
 
 FREQUENCY_TAG_IMAGES = True
@@ -135,7 +138,13 @@ def add_node(n, viz):
         raise Exception("Unexpected instance of class " + str(type(n)) + "!")
 
 
-def apply(powl: POWL) -> graphviz.Digraph:
+def apply(powl: POWL, parameters: Optional[Dict[Any, Any]] = None) -> graphviz.Digraph:
+    if parameters is None:
+        parameters = {}
+
+    enable_graph_title = exec_utils.get_param_value(Parameters.ENABLE_GRAPH_TITLE, parameters, constants.DEFAULT_ENABLE_GRAPH_TITLES)
+    graph_title = exec_utils.get_param_value(Parameters.GRAPH_TITLE, parameters, "POWL Model")
+
     pn_2, init_2, final_2 = powl_to_pn(powl)
     bpmn_graph = to_bpmn(pn_2, init_2, final_2)
 
@@ -164,6 +173,9 @@ def apply(powl: POWL) -> graphviz.Digraph:
     filename = tempfile.NamedTemporaryFile(suffix='.gv')
     viz = Digraph("", filename=filename.name, engine='dot', graph_attr={'bgcolor': bgcolor})
     viz.graph_attr['rankdir'] = rankdir
+
+    if enable_graph_title:
+        viz.attr(label='<<FONT POINT-SIZE="20">'+graph_title+'</FONT>>', labelloc="top")
 
     gateway_edges = {}
 

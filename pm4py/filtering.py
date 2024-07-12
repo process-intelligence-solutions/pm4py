@@ -858,9 +858,9 @@ def filter_ocel_events_timestamp(ocel: OCEL, min_timest: Union[datetime.datetime
     return event_attributes.apply_timestamp(ocel, min_timest, max_timest, parameters={"pm4py:param:timestamp_key": timestamp_key})
 
 
-def filter_four_eyes_principle(log: Union[EventLog, pd.DataFrame], activity1: str, activity2: str, activity_key: str = "concept:name", timestamp_key: str = "time:timestamp", case_id_key: str = "case:concept:name", resource_key: str = "org:resource") -> Union[EventLog, pd.DataFrame]:
+def filter_four_eyes_principle(log: Union[EventLog, pd.DataFrame], activity1: str, activity2: str, activity_key: str = "concept:name", timestamp_key: str = "time:timestamp", case_id_key: str = "case:concept:name", resource_key: str = "org:resource", keep_violations: bool = False) -> Union[EventLog, pd.DataFrame]:
     """
-    Filter the cases of the log which violates the four eyes principle on the provided activities.
+    Filter out the cases of the log violating the four eyes principle on the provided activities.
 
     :param log: event log
     :param activity1: first activity
@@ -869,6 +869,7 @@ def filter_four_eyes_principle(log: Union[EventLog, pd.DataFrame], activity1: st
     :param timestamp_key: attribute to be used for the timestamp
     :param case_id_key: attribute to be used as case identifier
     :param resource_key: attribute to be used as resource
+    :param keep_violations: boolean to discard (if False) or retain (if True) the violations
     :rtype: ``Union[EventLog, pd.DataFrame]``
 
     .. code-block:: python3
@@ -880,7 +881,7 @@ def filter_four_eyes_principle(log: Union[EventLog, pd.DataFrame], activity1: st
     __event_log_deprecation_warning(log)
 
     properties = get_properties(log, activity_key=activity_key, timestamp_key=timestamp_key, case_id_key=case_id_key, resource_key=resource_key)
-    properties["positive"] = True
+    properties["positive"] = not keep_violations
 
     if check_is_pandas_dataframe(log):
         check_pandas_dataframe_columns(log, activity_key=activity_key, timestamp_key=timestamp_key, case_id_key=case_id_key)
@@ -892,7 +893,7 @@ def filter_four_eyes_principle(log: Union[EventLog, pd.DataFrame], activity1: st
         return ltl_checker.four_eyes_principle(log, activity1, activity2, parameters=properties)
 
 
-def filter_activity_done_different_resources(log: Union[EventLog, pd.DataFrame], activity: str, activity_key: str = "concept:name", timestamp_key: str = "time:timestamp", case_id_key: str = "case:concept:name", resource_key: str = "org:resource") -> Union[EventLog, pd.DataFrame]:
+def filter_activity_done_different_resources(log: Union[EventLog, pd.DataFrame], activity: str, activity_key: str = "concept:name", timestamp_key: str = "time:timestamp", case_id_key: str = "case:concept:name", resource_key: str = "org:resource", keep_violations: bool = True) -> Union[EventLog, pd.DataFrame]:
     """
     Filters the cases where an activity is repeated by different resources.
 
@@ -902,6 +903,7 @@ def filter_activity_done_different_resources(log: Union[EventLog, pd.DataFrame],
     :param timestamp_key: attribute to be used for the timestamp
     :param case_id_key: attribute to be used as case identifier
     :param resource_key: attribute to be used as resource
+    :param keep_violations: boolean to discard (if False) or retain (if True) the violations
     :rtype: ``Union[EventLog, pd.DataFrame]``
 
     .. code-block:: python3
@@ -913,6 +915,7 @@ def filter_activity_done_different_resources(log: Union[EventLog, pd.DataFrame],
     __event_log_deprecation_warning(log)
 
     properties = get_properties(log, activity_key=activity_key, timestamp_key=timestamp_key, case_id_key=case_id_key, resource_key=resource_key)
+    properties["positive"] = keep_violations
 
     if check_is_pandas_dataframe(log):
         check_pandas_dataframe_columns(log, activity_key=activity_key, timestamp_key=timestamp_key, case_id_key=case_id_key)

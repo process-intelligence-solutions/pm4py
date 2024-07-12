@@ -15,6 +15,8 @@ class Parameters(Enum):
     ACTIVITY_THRESHOLD = "activity_threshold"
     EDGE_THRESHOLD = "edge_threshold"
     AGGREGATION_MEASURE = "aggregation_measure"
+    ENABLE_GRAPH_TITLE = "enable_graph_title"
+    GRAPH_TITLE = "graph_title"
 
 
 def apply(network_analysis_edges0: Dict[Tuple[str, str], Dict[str, Any]], parameters: Optional[Dict[Any, Any]] = None) -> Digraph:
@@ -60,11 +62,17 @@ def apply(network_analysis_edges0: Dict[Tuple[str, str], Dict[str, Any]], parame
     elif aggregation_measure == "sum":
         aggregation_f = sum
 
+    enable_graph_title = exec_utils.get_param_value(Parameters.ENABLE_GRAPH_TITLE, parameters, constants.DEFAULT_ENABLE_GRAPH_TITLES)
+    graph_title = exec_utils.get_param_value(Parameters.GRAPH_TITLE, parameters, "Network Analysis")
+
     filename = tempfile.NamedTemporaryFile(suffix='.gv')
     filename.close()
 
     viz = Digraph("pt", filename=filename.name, engine='dot', graph_attr={'bgcolor': bgcolor})
     viz.attr('node', shape='ellipse', fixedsize='false')
+
+    if enable_graph_title:
+        viz.attr(label='<<FONT POINT-SIZE="20">'+graph_title+'</FONT>>', labelloc="top")
 
     network_analysis_edges = {}
     network_analysis_edges_agg_performance = {}

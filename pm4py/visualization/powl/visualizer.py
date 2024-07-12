@@ -56,7 +56,7 @@ def apply(powl: POWL, variant=DEFAULT_VARIANT, frequency_tags=True, parameters: 
     if frequency_tags:
         powl = powl.simplify_using_frequent_transitions()
 
-    viz = exec_utils.get_variant(variant).apply(powl)
+    viz = exec_utils.get_variant(variant).apply(powl, parameters=parameters)
     svg_content = viz.pipe().decode('utf-8')
 
     def inline_images_and_svgs(svg_content):

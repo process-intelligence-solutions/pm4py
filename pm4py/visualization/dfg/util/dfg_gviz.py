@@ -282,7 +282,15 @@ def graphviz_visualization(activities_count, dfg, image_format="png", measure="f
     end_activities_to_include = [act for act in end_activities if act in activities_to_include]
 
     # calculate edges penwidth
-    penwidth = assign_penwidth_edges(dfg)
+    ext_dfg = copy(dfg)
+    if start_activities_to_include is not None and start_activities_to_include:
+        for sact in start_activities_to_include:
+            ext_dfg[(constants.DEFAULT_ARTIFICIAL_START_ACTIVITY, sact)] = start_activities[sact]
+    if end_activities_to_include is not None and end_activities_to_include:
+        for eact in end_activities_to_include:
+            ext_dfg[(eact, constants.DEFAULT_ARTIFICIAL_END_ACTIVITY)] = end_activities[eact]
+
+    penwidth = assign_penwidth_edges(ext_dfg)
 
     dfg_edges = sorted(list(dfg.keys()))
     if start_activities_to_include and end_activities_to_include:
@@ -315,14 +323,14 @@ def graphviz_visualization(activities_count, dfg, image_format="png", measure="f
         viz.node("@@startnode", "<&#9679;>", shape='circle', fontsize="34")
         for act in start_activities_to_include:
             label = str(start_activities[act]) if isinstance(start_activities, dict) and measure == "frequency" else ""
-            viz.edge("@@startnode", activities_map[act], label=label, fontsize=font_size)
+            viz.edge("@@startnode", activities_map[act], label=label, fontsize=font_size, penwidth=str(penwidth[(constants.DEFAULT_ARTIFICIAL_START_ACTIVITY, act)]))
 
     if end_activities_to_include:
         # <&#9632;>
         viz.node("@@endnode", "<&#9632;>", shape='doublecircle', fontsize="32")
         for act in end_activities_to_include:
             label = str(end_activities[act]) if isinstance(end_activities, dict) and measure == "frequency" else ""
-            viz.edge(activities_map[act], "@@endnode", label=label, fontsize=font_size)
+            viz.edge(activities_map[act], "@@endnode", label=label, fontsize=font_size, penwidth=str(penwidth[(act, constants.DEFAULT_ARTIFICIAL_END_ACTIVITY)]))
 
     viz.attr(overlap='false')
     viz.attr(fontsize='11')

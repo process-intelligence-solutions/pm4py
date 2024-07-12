@@ -14,6 +14,8 @@ class Parameters(Enum):
     FILLCOLORS = "fillcolors"
     FONT_SIZE = "font_size"
     BGCOLOR = "bgcolor"
+    ENABLE_GRAPH_TITLE = "enable_graph_title"
+    GRAPH_TITLE = "graph_title"
 
 
 def visualize(ts, parameters=None):
@@ -28,6 +30,8 @@ def visualize(ts, parameters=None):
     font_size = exec_utils.get_param_value(Parameters.FONT_SIZE, parameters, 11)
     font_size = str(font_size)
     bgcolor = exec_utils.get_param_value(Parameters.BGCOLOR, parameters, constants.DEFAULT_BGCOLOR)
+    enable_graph_title = exec_utils.get_param_value(Parameters.ENABLE_GRAPH_TITLE, parameters, constants.DEFAULT_ENABLE_GRAPH_TITLES)
+    graph_title = exec_utils.get_param_value(Parameters.GRAPH_TITLE, parameters, "Transition System")
 
     for state in ts.states:
         state.label = state.name
@@ -46,6 +50,9 @@ def visualize(ts, parameters=None):
     filename.close()
 
     viz = Digraph(ts.name, filename=filename.name, engine='dot', graph_attr={'bgcolor': bgcolor})
+
+    if enable_graph_title:
+        viz.attr(label='<<FONT POINT-SIZE="'+str(2*int(font_size))+'">'+graph_title+'</FONT>>', labelloc="top")
 
     # states
     viz.attr('node')

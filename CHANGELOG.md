@@ -1,7 +1,25 @@
 # Changelog of pm4py
 
 
-## pm4py 2.7.13 (2024.05.03)
+## pm4py 2.7.14 (2024.XX.YY)
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Fixed
+
+### Removed
+
+### Other
+
+
+---
+
+
+## pm4py 2.7.13 (2024.07.11)
 
 ### Added
 
@@ -14,6 +32,10 @@
   * refactoring dependencies generation script
 * 928ecf5f8192ff1ef7944c5b0a7be7c530814ad9
   * refactoring OpenAI query interface
+* 5fee9b4ac61c227ac77cbd28b888a7321ba401bf
+  * refactor OCEL object repr
+* 6c1ea7a38b3ef18fe9d490164ecebd85c432915f
+  * possibility to set the title in pm4py visualizations
 
 ### Deprecated
 
@@ -26,6 +48,12 @@
   * minor fix OCEL interleavings computation
 * 39d769cad1327c47d5948b0c40be4a90e41fcce7
   * removed indeterminism in TBR with duplicate transitions
+* 2fb8e6bffcac11b14fe13f152ac0b096cdc0d03a
+  * penwidth assignation in DFG edges
+* c753425ffd63da55fc0d3e71ab5b5fb62a2bf359
+  * OCEL exporters consistency check
+* e98d795c977348dcbe7495d62c8975fae0b9499c
+  * LTL filters documentation in the simplified interface
 
 ### Removed
 

@@ -42,3 +42,22 @@ class Trie(object):
     label = property(_get_label, _set_label)
     final = property(_get_final, _set_final)
     depth = property(_get_depth, _set_depth)
+
+    def repr_trie(self, indent_level=0):
+        stri = []
+
+        if self.label:
+            stri.append("\t"*indent_level + self.label)
+            indent_level += 1
+        for child in self.children:
+            stri.append(child.repr_trie(indent_level=indent_level))
+        if self.final:
+            stri.append("\t"*indent_level + "-- END --")
+
+        return "\n".join(stri)
+
+    def __repr__(self):
+        return self.repr_trie()
+
+    def __str__(self):
+        return self.repr_trie()

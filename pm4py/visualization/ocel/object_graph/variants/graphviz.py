@@ -13,6 +13,8 @@ class Parameters(Enum):
     BGCOLOR = "bgcolor"
     RANKDIR = "rankdir"
     DIRECTED = "directed"
+    ENABLE_GRAPH_TITLE = "enable_graph_title"
+    GRAPH_TITLE = "graph_title"
 
 
 def ot_to_color(ot: str) -> str:
@@ -55,6 +57,9 @@ def apply(ocel: OCEL, graph: Set[Tuple[str, str]], parameters: Optional[Dict[Any
     rankdir = exec_utils.get_param_value(Parameters.RANKDIR, parameters, constants.DEFAULT_RANKDIR_GVIZ)
     directed = exec_utils.get_param_value(Parameters.DIRECTED, parameters, True)
 
+    enable_graph_title = exec_utils.get_param_value(Parameters.ENABLE_GRAPH_TITLE, parameters, constants.DEFAULT_ENABLE_GRAPH_TITLES)
+    graph_title = exec_utils.get_param_value(Parameters.GRAPH_TITLE, parameters, "Object-Centric Graph")
+
     filename = tempfile.NamedTemporaryFile(suffix='.gv')
     filename.close()
 
@@ -64,6 +69,9 @@ def apply(ocel: OCEL, graph: Set[Tuple[str, str]], parameters: Optional[Dict[Any
         viz = Graph("ograph", filename=filename.name, engine='dot', graph_attr={'bgcolor': bgcolor})
     viz.attr('node', shape='ellipse', fixedsize='false')
 
+    if enable_graph_title:
+        viz.attr(label='<<FONT POINT-SIZE="20">'+graph_title+'</FONT>>', labelloc="top")
+    
     ob_type = ocel.objects.groupby(ocel.object_id_column).first()[ocel.object_type_column].to_dict()
 
     nodes = set(x[0] for x in graph).union(set(x[1] for x in graph))

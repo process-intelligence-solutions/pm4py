@@ -13,6 +13,8 @@ class Parameters(Enum):
     BGCOLOR = "bgcolor"
     ACTIVITY_THRESHOLD = "activity_threshold"
     EDGE_THRESHOLD = "edge_threshold"
+    ENABLE_GRAPH_TITLE = "enable_graph_title"
+    GRAPH_TITLE = "graph_title"
 
 
 def apply(network_analysis_edges: Dict[Tuple[str, str], Dict[str, int]], parameters: Optional[Dict[Any, Any]] = None) -> Digraph:
@@ -43,11 +45,17 @@ def apply(network_analysis_edges: Dict[Tuple[str, str], Dict[str, int]], paramet
     activity_threshold = exec_utils.get_param_value(Parameters.ACTIVITY_THRESHOLD, parameters, 1)
     edge_threshold = exec_utils.get_param_value(Parameters.EDGE_THRESHOLD, parameters, 1)
 
+    enable_graph_title = exec_utils.get_param_value(Parameters.ENABLE_GRAPH_TITLE, parameters, constants.DEFAULT_ENABLE_GRAPH_TITLES)
+    graph_title = exec_utils.get_param_value(Parameters.GRAPH_TITLE, parameters, "Network Analysis")
+
     filename = tempfile.NamedTemporaryFile(suffix='.gv')
     filename.close()
 
     viz = Digraph("pt", filename=filename.name, engine='dot', graph_attr={'bgcolor': bgcolor})
     viz.attr('node', shape='ellipse', fixedsize='false')
+
+    if enable_graph_title:
+        viz.attr(label='<<FONT POINT-SIZE="20">'+graph_title+'</FONT>>', labelloc="top")
 
     nodes = set(x[0] for x in network_analysis_edges).union(set(x[1] for x in network_analysis_edges))
     nodes_in_degree = {x: 0 for x in nodes}

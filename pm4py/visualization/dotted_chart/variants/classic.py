@@ -6,7 +6,7 @@ from enum import Enum
 from random import randint
 from typing import List, Any, Tuple, Dict, Optional, Union
 
-from pm4py.util import exec_utils
+from pm4py.util import exec_utils, constants
 
 
 class Parameters(Enum):
@@ -14,6 +14,8 @@ class Parameters(Enum):
     DOT_SIZE = "dot_size"
     LAYOUT_EXT_MULTIPLIER = "layout_ext_multiplier"
     SHOW_LEGEND = "show_legend"
+    ENABLE_GRAPH_TITLE = "enable_graph_title"
+    GRAPH_TITLE = "graph_title"
 
 
 def __build_unique_values(points_list: List[Any]) -> List[Any]:
@@ -133,6 +135,9 @@ def apply(points_list: List[Any], attributes: List[str], parameters: Optional[Di
     layout_ext_multiplier = exec_utils.get_param_value(Parameters.LAYOUT_EXT_MULTIPLIER, parameters, 50)
     show_legend = exec_utils.get_param_value(Parameters.SHOW_LEGEND, parameters, True)
 
+    enable_graph_title = exec_utils.get_param_value(Parameters.ENABLE_GRAPH_TITLE, parameters, constants.DEFAULT_ENABLE_GRAPH_TITLES)
+    graph_title = exec_utils.get_param_value(Parameters.GRAPH_TITLE, parameters, "Dotted Chart")
+
     unique_values = __build_unique_values(points_list)
     corr_dict, attr_type = __build_corr_dict(unique_values)
     color_dict = __build_color_dict(unique_values[2]) if len(attributes) == 3 else None
@@ -153,6 +158,10 @@ def apply(points_list: List[Any], attributes: List[str], parameters: Optional[Di
     output_file_img.close()
 
     lines = ["graph G {"]
+
+    if enable_graph_title:
+        lines.append('label=<<FONT POINT-SIZE="20">'+graph_title+'</FONT>>;\nlabelloc="top";\n')
+
     lines.append("origin [label=\"\", shape=none, width=\"0px\", height=\"0px\", pos=\"0,0!\"];")
     lines.append("rightX [label=\"\", shape=none, width=\"0px\", height=\"0px\", pos=\"%d,0!\"];" % (x_length))
     lines.append("topY [label=\"\", shape=none, width=\"0px\", height=\"0px\", pos=\"0,%d!\"];" % (y_length))

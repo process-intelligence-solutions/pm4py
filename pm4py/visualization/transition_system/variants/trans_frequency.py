@@ -14,6 +14,8 @@ from enum import Enum
 class Parameters(Enum):
     FORMAT = "format"
     BGCOLOR = "bgcolor"
+    ENABLE_GRAPH_TITLE = "enable_graph_title"
+    GRAPH_TITLE = "graph_title"
 
 
 def get_perc(total_events, arc_events):
@@ -29,10 +31,16 @@ def apply(tsys: TransitionSystem, parameters: Optional[Dict[Union[str, Parameter
     image_format = exec_utils.get_param_value(Parameters.FORMAT, parameters, "png")
     bgcolor = exec_utils.get_param_value(Parameters.BGCOLOR, parameters, constants.DEFAULT_BGCOLOR)
 
+    enable_graph_title = exec_utils.get_param_value(Parameters.ENABLE_GRAPH_TITLE, parameters, constants.DEFAULT_ENABLE_GRAPH_TITLES)
+    graph_title = exec_utils.get_param_value(Parameters.GRAPH_TITLE, parameters, "Transition System")
+
     filename = tempfile.NamedTemporaryFile(suffix='.gv')
     filename.close()
 
     viz = Digraph(tsys.name, filename=filename.name, engine='dot', graph_attr={'bgcolor': bgcolor})
+
+    if enable_graph_title:
+        viz.attr(label='<<FONT POINT-SIZE="20">'+graph_title+'</FONT>>', labelloc="top")
 
     states_dictio = {}
 
