@@ -1075,6 +1075,32 @@ def filter_ocel_events(ocel: OCEL, event_identifiers: Collection[str], positive:
     return filtering_utils.propagate_event_filtering(filtered_ocel)
 
 
+def filter_ocel_activities_connected_object_type(ocel: OCEL, object_type: str) -> OCEL:
+    """
+    Filter an OCEL on the set of activities executed on objects of the given object type.
+
+    :param ocel: object-centric event log
+    :param object_type: object type
+    :rtype: ``OCEL``
+
+    .. code-block:: python3
+
+        import pm4py
+
+        ocel = pm4py.read_ocel2("tests/input_data/ocel/ocel20_example.xmlocel")
+        filtered_ocel = pm4py.filter_ocel_activities_connected_object_type(ocel, "Purchase Order")
+        print(filtered_ocel)
+    """
+    from copy import copy
+    from pm4py.objects.ocel.util import filtering_utils
+    relations = ocel.relations[ocel.relations[ocel.object_type_column] == object_type]
+    activities = relations[ocel.event_activity].unique()
+    filtered_ocel = copy(ocel)
+    filtered_ocel.relations = filtered_ocel.relations[filtered_ocel.relations[ocel.event_activity].isin(activities)]
+
+    return filtering_utils.propagate_relations_filtering(filtered_ocel)
+
+
 def filter_ocel_cc_object(ocel: OCEL, object_id: str, conn_comp: Optional[List[List[str]]] = None, return_conn_comp: bool = False) -> Union[OCEL, Tuple[OCEL, List[List[str]]]]:
     """
     Returns the connected component of the object-centric event log
