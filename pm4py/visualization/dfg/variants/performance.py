@@ -49,7 +49,9 @@ class Parameters(Enum):
     AGGREGATION_MEASURE = "aggregation_measure"
     RANKDIR = "rankdir"
     BGCOLOR = "bgcolor"
-    STAT_LOCALE = "stat_locale"
+    ENABLE_GRAPH_TITLE = "enable_graph_title"
+    GRAPH_TITLE = "graph_title"
+
 
 def apply(dfg: Dict[Tuple[str, str], int], log: EventLog = None, parameters: Optional[Dict[Any, Any]] = None, activities_count : Dict[str, int] = None, serv_time: Dict[str, float] = None) -> graphviz.Digraph:
     """
@@ -88,7 +90,8 @@ def apply(dfg: Dict[Tuple[str, str], int], log: EventLog = None, parameters: Opt
 
     rankdir = exec_utils.get_param_value(Parameters.RANKDIR, parameters, constants.DEFAULT_RANKDIR_GVIZ)
     bgcolor = exec_utils.get_param_value(Parameters.BGCOLOR, parameters, constants.DEFAULT_BGCOLOR)
-    stat_locale = exec_utils.get_param_value(Parameters.STAT_LOCALE, parameters, {})
+    enable_graph_title = exec_utils.get_param_value(Parameters.ENABLE_GRAPH_TITLE, parameters, constants.DEFAULT_ENABLE_GRAPH_TITLES)
+    graph_title = exec_utils.get_param_value(Parameters.GRAPH_TITLE, parameters, "Performance Directly-Follows Graph")
 
     # if all the aggregation measures are provided for a given key,
     # then pick one of the values for the representation
@@ -126,4 +129,5 @@ def apply(dfg: Dict[Tuple[str, str], int], log: EventLog = None, parameters: Opt
     return dfg_gviz.graphviz_visualization(activities_count, dfg, image_format=image_format, measure="performance",
                                            max_no_of_edges_in_diagram=max_no_of_edges_in_diagram,
                                            start_activities=start_activities, end_activities=end_activities, serv_time=serv_time,
-                                           font_size=font_size, bgcolor=bgcolor, rankdir=rankdir)
+                                           font_size=font_size, bgcolor=bgcolor, rankdir=rankdir,
+                                           enable_graph_title=enable_graph_title, graph_title=graph_title)

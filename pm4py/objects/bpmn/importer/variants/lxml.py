@@ -305,15 +305,13 @@ def parse_element(bpmn_graph, counts, curr_el, parents, incoming_dict, outgoing_
                     incoming_dict[seq_flow_id][3], incoming_dict[seq_flow_id][4])
         for seq_flow_id in outgoing_dict:
             if outgoing_dict[seq_flow_id][0] in nodes_dict:
-                outgoing_dict[seq_flow_id] = (
-                nodes_dict[outgoing_dict[seq_flow_id][0]], outgoing_dict[seq_flow_id][1], outgoing_dict[seq_flow_id][2],
-                outgoing_dict[seq_flow_id][3], outgoing_dict[seq_flow_id][4])
+                outgoing_dict[seq_flow_id] = (nodes_dict[outgoing_dict[seq_flow_id][0]], outgoing_dict[seq_flow_id][1], outgoing_dict[seq_flow_id][2], outgoing_dict[seq_flow_id][3], outgoing_dict[seq_flow_id][4])
 
         # also supports flows without waypoints
         flows_without_waypoints = set(flow_info).union(set(outgoing_dict).intersection(set(incoming_dict)))
         for flow_id in flows_without_waypoints:
             flow_info[flow_id] = []
-
+        
         for flow_id in flow_info:
             if flow_id in outgoing_dict and flow_id in incoming_dict:
                 flow = None
