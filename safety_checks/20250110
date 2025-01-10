@@ -1,0 +1,61 @@
+
+
++===========================================================================================================================================================================================+
+
+
+DEPRECATED: this command (`check`) has been DEPRECATED, and will be unsupported beyond 01 June 2024.
+
+
+We highly encourage switching to the new `scan` command which is easier to use, more powerful, and can be set up to mimic the deprecated command if required.
+
+
++===========================================================================================================================================================================================+
+
+
++==============================================================================+
+
+                               /$$$$$$            /$$
+                              /$$__  $$          | $$
+           /$$$$$$$  /$$$$$$ | $$  \__//$$$$$$  /$$$$$$   /$$   /$$
+          /$$_____/ |____  $$| $$$$   /$$__  $$|_  $$_/  | $$  | $$
+         |  $$$$$$   /$$$$$$$| $$_/  | $$$$$$$$  | $$    | $$  | $$
+          \____  $$ /$$__  $$| $$    | $$_____/  | $$ /$$| $$  | $$
+          /$$$$$$$/|  $$$$$$$| $$    |  $$$$$$$  |  $$$$/|  $$$$$$$
+         |_______/  \_______/|__/     \_______/   \___/   \____  $$
+                                                          /$$  | $$
+                                                         |  $$$$$$/
+  by safetycli.com                                        \______/
+
++==============================================================================+
+
+ REPORT 
+
+  Safety v3.2.14 is scanning for Vulnerabilities...
+  Scanning dependencies in your files:
+
+  -> requirements_stable.txt
+
+  Using open-source vulnerability database
+  Found and scanned 26 packages
+  Timestamp 2025-01-10 13:44:56
+  0 vulnerabilities reported
+  0 vulnerabilities ignored
++==============================================================================+
+
+ No known security vulnerabilities reported. 
+
++==============================================================================+
+
+
++===========================================================================================================================================================================================+
+
+
+DEPRECATED: this command (`check`) has been DEPRECATED, and will be unsupported beyond 01 June 2024.
+
+
+We highly encourage switching to the new `scan` command which is easier to use, more powerful, and can be set up to mimic the deprecated command if required.
+
+
++===========================================================================================================================================================================================+
+
+
