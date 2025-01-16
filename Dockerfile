@@ -9,10 +9,10 @@ RUN apt-get -y install libopenblas-dev liblapack-dev libboost-all-dev libncurses
 RUN python3 -m pip install --upgrade pip
 RUN pip3 install deprecation==2.1.0 graphviz==0.20.3 intervaltree==3.1.0 networkx==3.4.2 packaging==24.2 python-dateutil==2.9.0.post0 pytz==2024.2 setuptools==75.8.0 six==1.17.0 sortedcontainers==2.4.0 tzdata==2024.2 wheel==0.45.1 
 RUN pip3 install colorama==0.4.6 cycler==0.12.1 pydotplus==2.0.2 pyparsing==3.2.1 tqdm==4.67.1 
-RUN pip3 install lxml==5.3.0 numpy==2.2.1 pandas==2.2.3 scipy==1.15.0 
+RUN pip3 install lxml==5.3.0 numpy==2.2.1 pandas==2.2.3 scipy==1.15.1 
 RUN pip3 install contourpy==1.3.1 fonttools==4.55.3 kiwisolver==1.4.8 matplotlib==3.10.0 pillow==11.1.0 
-RUN pip3 install anyio==4.8.0 attrs==24.3.0 certifi==2024.12.14 charset-normalizer==3.4.1 distro==1.9.0 h11==0.14.0 httpcore==1.0.7 httpx==0.28.1 idna==3.10 jiter==0.8.2 jsonschema-specifications==2024.10.1 pydantic==2.10.5 referencing==0.35.1 rpds-py==0.22.3 sniffio==1.3.1 typing_extensions==4.12.2 urllib3==2.3.0 
-RUN pip3 install jsonschema==4.23.0 openai==1.59.6 requests==2.32.3 
+RUN pip3 install anyio==4.8.0 asttokens==3.0.0 attrs==24.3.0 certifi==2024.12.14 charset-normalizer==3.4.1 convertdate==2.4.0 decorator==5.1.1 distro==1.9.0 executing==2.1.0 h11==0.14.0 httpcore==1.0.7 httpx==0.28.1 idna==3.10 ipython==8.31.0 jedi==0.19.2 Jinja2==3.1.5 jsonpickle==4.0.1 jsonschema-specifications==2024.10.1 lunardate==0.2.2 MarkupSafe==3.0.2 matplotlib-inline==0.1.7 parso==0.8.4 prompt-toolkit==3.0.48 pure-eval==0.2.3 pydantic==2.10.5 Pygments==2.19.1 pyluach==2.2.0 PyMeeus==0.5.12 referencing==0.35.1 rpds-py==0.22.3 sniffio==1.3.1 stack-data==0.6.3 traitlets==5.14.3 typing_extensions==4.12.2 urllib3==2.3.0 wcwidth==0.2.13 
+RUN pip3 install jsonschema==4.23.0 openai==1.59.7 pyvis==0.3.2 requests==2.32.3 workalendar==17.0.0 
 RUN pip3 install -U meson-python==0.15.0 Cython==3.0.10 ninja==1.11.1.1 spin==0.8 build==1.2.1 setuptools_scm==8.0.4
 
 #RUN cd / && git clone https://github.com/numpy/numpy.git && cd /numpy && git submodule update --init && pip3 install .
