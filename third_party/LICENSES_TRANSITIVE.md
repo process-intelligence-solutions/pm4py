@@ -25,7 +25,7 @@
 | pyparsing | https://pypi.org/pypi/pyparsing/json | MIT License | 3.2.1 |
 | python-dateutil | https://pypi.org/pypi/python-dateutil/json | BSD License | 2.9.0.post0 |
 | pytz | https://pypi.org/pypi/pytz/json | MIT License | 2024.2 |
-| scipy | https://pypi.org/pypi/scipy/json | BSD License | 1.15.0 |
+| scipy | https://pypi.org/pypi/scipy/json | BSD License | 1.15.1 |
 | setuptools | https://pypi.org/pypi/setuptools/json | MIT License | 75.8.0 |
 | six | https://pypi.org/pypi/six/json | MIT License | 1.17.0 |
 | sortedcontainers | https://pypi.org/pypi/sortedcontainers/json | Apache Software License | 2.4.0 |
