@@ -4,8 +4,6 @@
 ## pm4py 2.7.14 (2024.07.16)
 
 ### Added
-* cb5cfb8e6b2a2caa960ba1aee4eff8c706ad7d16
-  * filter OCEL activiites connected to object type
 
 ### Changed
 * 561fd6c07d089679c1317a8d27bb28225e21cf76
