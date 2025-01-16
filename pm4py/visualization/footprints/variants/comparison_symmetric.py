@@ -1,12 +1,14 @@
 from graphviz import Source
 import tempfile
-from pm4py.util import exec_utils
+from pm4py.util import exec_utils, constants
 from enum import Enum
 from typing import Optional, Dict, Any, Union
 
 
 class Parameters(Enum):
     FORMAT = "format"
+    ENABLE_GRAPH_TITLE = "enable_graph_title"
+    GRAPH_TITLE = "graph_title"
 
 
 UNKNOWN_SYMBOL = "&#63;"
@@ -49,11 +51,21 @@ def apply(fp1: Dict[str, Any], fp2: Dict[str, Any], parameters: Optional[Dict[Un
     fp_table = {}
 
     image_format = exec_utils.get_param_value(Parameters.FORMAT, parameters, "png")
+    enable_graph_title = exec_utils.get_param_value(Parameters.ENABLE_GRAPH_TITLE, parameters, constants.DEFAULT_ENABLE_GRAPH_TITLES)
+    graph_title = exec_utils.get_param_value(Parameters.GRAPH_TITLE, parameters, "Footprints")
 
     filename = tempfile.NamedTemporaryFile(suffix='.gv')
     filename.close()
 
-    footprints_table = ["digraph {\n", "tbl [\n", "shape=plaintext\n", "label=<\n"]
+    footprints_table = ["digraph {\n"]
+
+    if enable_graph_title:
+        footprints_table.append('label=<<FONT POINT-SIZE="20">'+graph_title+'</FONT>>;\nlabelloc="top";\n')
+
+    footprints_table.append("tbl [\n")
+    footprints_table.append("shape=plaintext\n")
+    footprints_table.append("label=<\n")
+
     footprints_table.append("<table border='0' cellborder='1' color='blue' cellspacing='0'>\n")
 
     footprints_table.append("<tr><td></td>")

@@ -1,5 +1,6 @@
 from pm4py.objects.ocel.obj import OCEL
 from typing import Optional, Dict, Any
+import warnings
 
 
 def apply(ocel: OCEL, parameters: Optional[Dict[Any, Any]] = None) -> OCEL:
@@ -23,12 +24,12 @@ def apply(ocel: OCEL, parameters: Optional[Dict[Any, Any]] = None) -> OCEL:
         parameters = {}
 
     fields = {
-        "events": ["ocel:eid", "ocel:activity"],
-        "objects": ["ocel:oid", "ocel:type"],
-        "relations": ["ocel:eid", "ocel:oid", "ocel:activity", "ocel:type"],
-        "o2o": ["ocel:oid", "ocel:oid_2"],
-        "e2e": ["ocel:eid", "ocel:eid_2"],
-        "object_changes": ["ocel:oid"]
+        "events": [ocel.event_id_column, ocel.event_activity],
+        "objects": [ocel.object_id_column, ocel.object_type_column],
+        "relations": [ocel.event_id_column, ocel.object_id_column, ocel.event_activity, ocel.object_type_column],
+        "o2o": [ocel.object_id_column, ocel.object_id_column+"_2"],
+        "e2e": [ocel.event_id_column, ocel.event_id_column+"_2"],
+        "object_changes": [ocel.object_id_column]
     }
 
     for tab in fields:
@@ -39,5 +40,15 @@ def apply(ocel: OCEL, parameters: Optional[Dict[Any, Any]] = None) -> OCEL:
             df = df.dropna(subset=[fie], how="any")
             df = df[df[fie].str.len() > 0]
             setattr(ocel, tab, df)
+
+    # check if the event IDs or object IDs are unique
+    num_ev_ids = ocel.events[ocel.event_id_column].nunique()
+    num_obj_ids = ocel.objects[ocel.object_id_column].nunique()
+
+    if num_ev_ids < len(ocel.events):
+        warnings.warn("The event identifiers in the OCEL are not unique!")
+
+    if num_obj_ids < len(ocel.objects):
+        warnings.warn("The object identifiers in the OCEL are not unique!")
 
     return ocel

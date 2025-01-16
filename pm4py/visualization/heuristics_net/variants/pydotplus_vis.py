@@ -14,6 +14,8 @@ from uuid import uuid4
 class Parameters(Enum):
     FORMAT = "format"
     BGCOLOR = "bgcolor"
+    ENABLE_GRAPH_TITLE = "enable_graph_title"
+    GRAPH_TITLE = "graph_title"
 
 
 def get_corr_hex(num):
@@ -121,10 +123,19 @@ def get_graph(heu_net: HeuristicsNet, parameters: Optional[Dict[Union[str, Param
     if parameters is None:
         parameters = {}
 
+    enable_graph_title = exec_utils.get_param_value(Parameters.ENABLE_GRAPH_TITLE, parameters, constants.DEFAULT_ENABLE_GRAPH_TITLES)
+    graph_title = exec_utils.get_param_value(Parameters.GRAPH_TITLE, parameters, "Heuristics Net")
+
     bgcolor = exec_utils.get_param_value(Parameters.BGCOLOR, parameters, constants.DEFAULT_BGCOLOR)
     graph = pydotplus.Dot(strict=True)
     graph.obj_dict['attributes']['bgcolor'] = bgcolor
     graph.set_bgcolor(bgcolor)
+
+    if enable_graph_title:
+        graph.set_label(graph_title)
+        graph.set_labelloc("top")
+        graph.set_labeljust("center")
+        graph.set_fontsize(20)
 
     corr_nodes = {}
     corr_nodes_names = {}

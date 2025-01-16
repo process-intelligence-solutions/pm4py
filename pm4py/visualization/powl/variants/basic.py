@@ -3,7 +3,8 @@ import tempfile
 from enum import Enum
 from graphviz import Digraph
 from pm4py.objects.process_tree.obj import Operator
-from pm4py.util import exec_utils
+from pm4py.util import exec_utils, constants
+from typing import Optional, Dict, Any
 from pm4py.objects.powl.obj import POWL, Transition, SilentTransition, StrictPartialOrder, OperatorPOWL, \
     FrequentTransition
 
@@ -22,9 +23,11 @@ class Parameters(Enum):
     ENABLE_DEEPCOPY = "enable_deepcopy"
     FONT_SIZE = "font_size"
     BGCOLOR = "bgcolor"
+    ENABLE_GRAPH_TITLE = "enable_graph_title"
+    GRAPH_TITLE = "graph_title"
 
 
-def apply(powl: POWL) -> Digraph:
+def apply(powl: POWL, parameters: Optional[Dict[Any, Any]] = None) -> Digraph:
     """
     Obtain a POWL model representation through GraphViz
 
@@ -38,6 +41,11 @@ def apply(powl: POWL) -> Digraph:
     gviz
         GraphViz Digraph
     """
+    if parameters is None:
+        parameters = {}
+
+    enable_graph_title = exec_utils.get_param_value(Parameters.ENABLE_GRAPH_TITLE, parameters, constants.DEFAULT_ENABLE_GRAPH_TITLES)
+    graph_title = exec_utils.get_param_value(Parameters.GRAPH_TITLE, parameters, "POWL model")
 
     filename = tempfile.NamedTemporaryFile(suffix='.gv')
 

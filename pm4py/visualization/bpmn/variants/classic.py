@@ -91,6 +91,9 @@ def apply(bpmn_graph: BPMN, parameters: Optional[Dict[Any, Any]] = None) -> grap
     viz = Digraph("", filename=filename.name, engine='dot', graph_attr={'bgcolor': bgcolor})
     viz.graph_attr['rankdir'] = rankdir
 
+    if enable_graph_title:
+        viz.attr(label='<<FONT POINT-SIZE="'+str(2*int(font_size))+'">'+graph_title+'</FONT>>', labelloc="top")
+
     nodes, edges = get_sorted_nodes_edges(bpmn_graph)
     process_ids = []
     for n in nodes:

@@ -1,8 +1,11 @@
 import tempfile
 from copy import copy
+import sys
 
 from graphviz import Digraph
 from pm4py.util import constants
+from typing import Dict, List, Tuple
+from collections import defaultdict, deque
 from pm4py.visualization.common.utils import *
 
 
@@ -118,7 +121,8 @@ def assign_penwidth_edges(dfg):
 
 def graphviz_visualization(activities_count, dfg, image_format="png", measure="frequency",
                            max_no_of_edges_in_diagram=100000, start_activities=None, end_activities=None, serv_time=None,
-                           font_size="12", bgcolor=constants.DEFAULT_BGCOLOR, rankdir=constants.DEFAULT_RANKDIR_GVIZ):
+                           font_size="12", bgcolor=constants.DEFAULT_BGCOLOR, rankdir=constants.DEFAULT_RANKDIR_GVIZ,
+                           enable_graph_title: bool = constants.DEFAULT_ENABLE_GRAPH_TITLES, graph_title: str = "Directly-Follows Graph"):
     """
     Do GraphViz visualization of a DFG graph
 
@@ -146,6 +150,10 @@ def graphviz_visualization(activities_count, dfg, image_format="png", measure="f
         Background color of the visualization (i.e., 'transparent', 'white', ...)
     rankdir
         Direction of the graph ("LR" for left-to-right; "TB" for top-to-bottom)
+    enable_graph_title
+        Enables the visualization of a graph's title
+    graph_title
+        Graph title to display (if enable_graph_title)
 
     Returns
     -----------
@@ -162,6 +170,9 @@ def graphviz_visualization(activities_count, dfg, image_format="png", measure="f
 
     viz = Digraph("", filename=filename.name, engine='dot', graph_attr={'bgcolor': bgcolor, 'rankdir': rankdir})
 
+    if enable_graph_title:
+        viz.attr(label='<<FONT POINT-SIZE="'+str(2*int(font_size))+'">'+graph_title+'</FONT>>', labelloc="top")
+
     # first, remove edges in diagram that exceeds the maximum number of edges in the diagram
     dfg_key_value_list = []
     for edge in dfg:
@@ -175,9 +186,6 @@ def graphviz_visualization(activities_count, dfg, image_format="png", measure="f
     for edge in dfg_keys:
         if edge not in dfg_allowed_keys:
             del dfg[edge]
-
-    # calculate edges penwidth
-    penwidth = assign_penwidth_edges(dfg)
 
     activities_count_int = copy(activities_count)
 
@@ -198,6 +206,22 @@ def graphviz_visualization(activities_count, dfg, image_format="png", measure="f
         # take unique elements as a list not as a set (in this way, nodes are added in the same order to the graph)
         activities_to_include = sorted(list(set(activities_in_dfg)))
 
+    start_activities_to_include = [act for act in start_activities if act in activities_to_include]
+    end_activities_to_include = [act for act in end_activities if act in activities_to_include]
+
+    # calculate edges penwidth
+    ext_dfg = copy(dfg)
+    if start_activities_to_include is not None and start_activities_to_include:
+        for sact in start_activities_to_include:
+            ext_dfg[(constants.DEFAULT_ARTIFICIAL_START_ACTIVITY, sact)] = start_activities[sact]
+    if end_activities_to_include is not None and end_activities_to_include:
+        for eact in end_activities_to_include:
+            ext_dfg[(eact, constants.DEFAULT_ARTIFICIAL_END_ACTIVITY)] = end_activities[eact]
+
+    penwidth = assign_penwidth_edges(ext_dfg)
+
+    dfg_edges = sorted(list(dfg.keys()))
+
     activities_map = {}
 
     for act in activities_to_include:
@@ -213,9 +237,6 @@ def graphviz_visualization(activities_count, dfg, image_format="png", measure="f
             viz.node(str(hash(act)), act, fontsize=font_size)
             activities_map[act] = str(hash(act))
 
-    # make edges addition always in the same order
-    dfg_edges = sorted(list(dfg.keys()))
-
     # represent edges
     for edge in dfg_edges:
         if "frequency" in measure or "cost" in measure:
@@ -224,21 +245,18 @@ def graphviz_visualization(activities_count, dfg, image_format="png", measure="f
             label = human_readable_stat(dfg[edge])
         viz.edge(str(hash(edge[0])), str(hash(edge[1])), label=label, penwidth=str(penwidth[edge]), fontsize=font_size)
 
-    start_activities_to_include = [act for act in start_activities if act in activities_map]
-    end_activities_to_include = [act for act in end_activities if act in activities_map]
-
     if start_activities_to_include:
         viz.node("@@startnode", "<&#9679;>", shape='circle', fontsize="34")
         for act in start_activities_to_include:
             label = str(start_activities[act]) if isinstance(start_activities, dict) and measure == "frequency" else ""
-            viz.edge("@@startnode", activities_map[act], label=label, fontsize=font_size)
+            viz.edge("@@startnode", activities_map[act], label=label, fontsize=font_size, penwidth=str(penwidth[(constants.DEFAULT_ARTIFICIAL_START_ACTIVITY, act)]))
 
     if end_activities_to_include:
         # <&#9632;>
         viz.node("@@endnode", "<&#9632;>", shape='doublecircle', fontsize="32")
         for act in end_activities_to_include:
             label = str(end_activities[act]) if isinstance(end_activities, dict) and measure == "frequency" else ""
-            viz.edge(activities_map[act], "@@endnode", label=label, fontsize=font_size)
+            viz.edge(activities_map[act], "@@endnode", label=label, fontsize=font_size, penwidth=str(penwidth[(act, constants.DEFAULT_ARTIFICIAL_END_ACTIVITY)]))
 
     viz.attr(overlap='false')
     viz.attr(fontsize='11')

@@ -9,7 +9,7 @@ from typing import Optional, Dict, Any, Union
 import matplotlib as mpl
 import matplotlib.cm as cm
 
-from pm4py.util import exec_utils
+from pm4py.util import exec_utils, constants
 from pm4py.util.dt_parsing.variants import strpfromiso
 from pm4py.util.colors import get_string_from_int_below_255
 
@@ -22,6 +22,8 @@ class Parameters(Enum):
     N_DIV_DATES = "n_div_dates"
     PERC_PATHS = "perc_paths"
     LAYOUT_EXT_MULTIPLIER = "layout_ext_multiplier"
+    ENABLE_GRAPH_TITLE = "enable_graph_title"
+    GRAPH_TITLE = "graph_title"
 
 
 def give_color_to_line(dir: float) -> str:
@@ -85,6 +87,9 @@ def apply(perf_spectrum: Dict[str, Any], parameters: Optional[Dict[Union[str, Pa
     perc_paths = exec_utils.get_param_value(Parameters.PERC_PATHS, parameters, 1.0)
     layout_ext_multiplier = exec_utils.get_param_value(Parameters.LAYOUT_EXT_MULTIPLIER, parameters, 100)
 
+    enable_graph_title = exec_utils.get_param_value(Parameters.ENABLE_GRAPH_TITLE, parameters, constants.DEFAULT_ENABLE_GRAPH_TITLES)
+    graph_title = exec_utils.get_param_value(Parameters.GRAPH_TITLE, parameters, "Performance Spectrum")
+
     output_file_gv = tempfile.NamedTemporaryFile(suffix=".gv")
     output_file_gv.close()
 
@@ -93,6 +98,9 @@ def apply(perf_spectrum: Dict[str, Any], parameters: Optional[Dict[Union[str, Pa
 
     lines = []
     lines.append("graph G {")
+
+    if enable_graph_title:
+        lines.append('label=<<FONT POINT-SIZE="20">'+graph_title+'</FONT>>;\nlabelloc="top";\n')
 
     min_x = min(x[0] for x in perf_spectrum["points"])
     max_x = max(x[-1] for x in perf_spectrum["points"])

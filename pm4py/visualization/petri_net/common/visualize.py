@@ -2,10 +2,12 @@ import tempfile
 
 from graphviz import Digraph
 
-from pm4py.objects.petri_net.obj import Marking
+from pm4py.objects.petri_net.obj import Marking, PetriNet
 from pm4py.objects.petri_net import properties as petri_properties
 from pm4py.util import exec_utils, constants
 from enum import Enum
+from typing import List, Tuple, Dict
+from collections import defaultdict, deque
 from pm4py.util.constants import PARAMETER_CONSTANT_ACTIVITY_KEY, PARAMETER_CONSTANT_TIMESTAMP_KEY
 
 
@@ -19,6 +21,8 @@ class Parameters(Enum):
     FONT_SIZE = "font_size"
     BGCOLOR = "bgcolor"
     DECORATIONS = "decorations"
+    ENABLE_GRAPH_TITLE = "enable_graph_title"
+    GRAPH_TITLE = "graph_title"
 
 
 def apply(net, initial_marking, final_marking, decorations=None, parameters=None):
@@ -52,17 +56,21 @@ def apply(net, initial_marking, final_marking, decorations=None, parameters=None
     set_rankdir = exec_utils.get_param_value(Parameters.RANKDIR, parameters, None)
     font_size = exec_utils.get_param_value(Parameters.FONT_SIZE, parameters, "12")
     bgcolor = exec_utils.get_param_value(Parameters.BGCOLOR, parameters, constants.DEFAULT_BGCOLOR)
+    enable_graph_title = exec_utils.get_param_value(Parameters.ENABLE_GRAPH_TITLE, parameters, constants.DEFAULT_ENABLE_GRAPH_TITLES)
+    graph_title = exec_utils.get_param_value(Parameters.GRAPH_TITLE, parameters, "Petri Net")
 
     if decorations is None:
         decorations = exec_utils.get_param_value(Parameters.DECORATIONS, parameters, None)
 
     return graphviz_visualization(net, image_format=image_format, initial_marking=initial_marking,
                                   final_marking=final_marking, decorations=decorations, debug=debug,
-                                  set_rankdir=set_rankdir, font_size=font_size, bgcolor=bgcolor)
+                                  set_rankdir=set_rankdir, font_size=font_size, bgcolor=bgcolor,
+                                  enable_graph_title=enable_graph_title, graph_title=graph_title)
 
 
 def graphviz_visualization(net, image_format="png", initial_marking=None, final_marking=None, decorations=None,
-                           debug=False, set_rankdir=None, font_size="12", bgcolor=constants.DEFAULT_BGCOLOR):
+                           debug=False, set_rankdir=None, font_size="12", bgcolor=constants.DEFAULT_BGCOLOR,
+                           enable_graph_title: bool = constants.DEFAULT_ENABLE_GRAPH_TITLES, graph_title: str = "Petri Net"):
     """
     Provides visualization for the petrinet
 
@@ -82,6 +90,10 @@ def graphviz_visualization(net, image_format="png", initial_marking=None, final_
         Enables debug mode
     set_rankdir
         Sets the rankdir to LR (horizontal layout)
+    enable_graph_title
+        Enables the visualization of a graph's title
+    graph_title
+        Graph title to display (if enable_graph_title)
 
     Returns
     -------
@@ -105,6 +117,9 @@ def graphviz_visualization(net, image_format="png", initial_marking=None, final_
         viz.graph_attr['rankdir'] = set_rankdir
     else:
         viz.graph_attr['rankdir'] = 'LR'
+
+    if enable_graph_title:
+        viz.attr(label='<<FONT POINT-SIZE="'+str(2*int(font_size))+'">'+graph_title+'</FONT>>', labelloc="top")
 
     # transitions
     viz.attr('node', shape='box')
