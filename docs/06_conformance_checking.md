@@ -6,13 +6,13 @@ Conformance checking is a technique to compare a process model with an event log
 
 Token-based replay matches a trace and a Petri net model, starting from the initial place, in order to discover which transitions are executed and in which places we have remaining or missing tokens for the given process instance. Token-based replay is useful for conformance checking: indeed, a trace fits the model if, during its execution, the transitions can be fired without the need to insert any missing tokens. If reaching the final marking is imposed, then a trace fits if it reaches the final marking without any missing or remaining tokens. See explanation.
 
-For each trace, there are four values that have to be determined: produced tokens, remaining tokens, missing tokens, and consumed tokens. Based on that, a formula can be derived, whereby a Petri net (n) and a trace (t) are given as input:
+For each trace, there are four values that have to be determined: produced tokens, remaining tokens, missing tokens, and consumed tokens. Based on that, a formula can be derived, whereby a Petri net ($n$) and a trace ($t$) are given as input:
 
-\[
+$$
 \text{fitness}(n, t) = \frac{1}{2} \left(1 - \frac{r}{p}\right) + \frac{1}{2} \left(1 - \frac{m}{c}\right)
-\]
+$$
 
-To apply the formula to the whole event log, \( p \), \( r \), \( m \), and \( c \) are calculated for each trace, summed up, and finally placed into the formula above.
+To apply the formula to the whole event log, $p$, $r$, $m$, and $c$ are calculated for each trace, summed up, and finally placed into the formula above.
 
 In PM4Py, there is an implementation of a token replayer that can traverse hidden transitions (calculating the shortest paths between places) and can be used with any Petri net model with unique visible transitions and hidden transitions. When a visible transition needs to be fired and not all places in the preset are provided with the correct number of tokens, starting from the current marking, it is checked if there is a sequence of hidden transitions that could be fired to enable the visible transition. The hidden transitions are then fired, and a marking that permits enabling the visible transition is reached.
 
