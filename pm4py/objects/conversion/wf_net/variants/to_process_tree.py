@@ -42,7 +42,7 @@ class Parameters(Enum):
 
 
 def generate_label_for_transition(t):
-    return 'tau' if t.label is None else '\'' + t.label + '\'' if not t.name.startswith(
+    return 'tau' if t.label is None else '\'' + t.label.replace("'", "") + '\'' if not t.name.startswith(
         TRANSITION_PREFIX) else t.label
 
 

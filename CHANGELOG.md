@@ -1,11 +1,13 @@
 # Changelog of pm4py
 
 
-## pm4py 2.7.14 (2024.XX.YY)
+## pm4py 2.7.14 (2024.07.16)
 
 ### Added
 
 ### Changed
+* 561fd6c07d089679c1317a8d27bb28225e21cf76
+  * improved DFG sorting for visualization based on reachability from start/end activities
 
 ### Deprecated
 

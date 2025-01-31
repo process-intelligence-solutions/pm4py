@@ -12,6 +12,12 @@ class OutcomeMeasurement:
     SUCCESS = 0
     FAILED = 0
 
+def inductive_miner_dfg_lc():
+    from examples import inductive_miner_dfg_lc
+    print("\n\ninductive_miner_dfg_lc")
+    inductive_miner_dfg_lc.execute_script()
+
+
 def bpmn_js_visualization():
     from examples import bpmn_js_visualization
     print("\n\nbpmn_js_visualization")
@@ -943,6 +949,7 @@ def main():
     print_versions()
 
     if EXECUTE_EXAMPLES:
+        execute_script(inductive_miner_dfg_lc)
         execute_script(log_projection_dfg_variant)
         execute_script(streaming_live_to_static_stream)
         execute_script(powl_discovery)

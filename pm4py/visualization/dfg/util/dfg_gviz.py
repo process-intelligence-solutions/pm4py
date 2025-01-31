@@ -141,6 +141,78 @@ def assign_penwidth_edges(dfg):
     return penwidth
 
 
+def sort_dfg_reachability(dfg: List[Tuple[str, str]],
+                          start_activities_to_include: List[str],
+                          end_activities_to_include: List[str]) -> Tuple[List[str], List[Tuple[str, str]]]:
+    """
+    Sort the edges of the directly-follows graph based on reachability principles
+    (start activities are putting at the beginning, end activities at the end)
+
+    Parameters
+    ----------------
+    dfg
+        List of edges of the directly-follows graph (without frequency/performance annotation)
+    start_activities_to_include
+        Start activities
+    end_activities
+        End activities
+
+    Returns
+    ----------------
+    sorted_activities
+        Activities sorted by reachability
+    sorted_edges
+        Edges sorted by reachability
+    """
+    # identify all unique activities
+    activities_dfg = set(x[0] for x in dfg).union(set(x[1] for x in dfg))
+
+    # create adjacency lists and in-degree count
+    adjacency_list = defaultdict(list)
+    in_degree = defaultdict(int)
+
+    for u, v in dfg:
+        adjacency_list[u].append(v)
+        in_degree[v] += 1
+        if u not in in_degree:
+            in_degree[u] = 0
+
+    # initialize the queue with start activities
+    queue = deque(start_activities_to_include)
+    distance = {activity: 0 for activity in start_activities_to_include}
+
+    # ensure all activities are present in the distance dictionary
+    for activity in activities_dfg:
+        if activity not in distance:
+            distance[activity] = float('inf')
+
+    # perform BFS to calculate the distance of each activity from the start activities
+    while queue:
+        current = queue.popleft()
+        current_distance = distance[current]
+
+        for neighbor in adjacency_list[current]:
+            if distance[neighbor] > current_distance + 1:
+                distance[neighbor] = current_distance + 1
+                queue.append(neighbor)
+
+    # sort edges based on the distance of their source activities
+    def edge_priority(edge):
+        u, v = edge
+        if u in start_activities_to_include:
+            return (0, distance[u], distance[v], u, v)
+        if v in end_activities_to_include:
+            return (2, distance[u], distance[v], u, v)
+        return (1, distance[u], distance[v], u, v)
+
+    sorted_edges = sorted(dfg, key=edge_priority)
+
+    # Step 6: Sort activities based on their distance
+    sorted_activities = sorted(activities_dfg, key=lambda x: (distance[x], x))
+
+    return sorted_activities, sorted_edges
+
+
 def graphviz_visualization(activities_count, dfg, image_format="png", measure="frequency",
                            max_no_of_edges_in_diagram=100000, start_activities=None, end_activities=None, serv_time=None,
                            font_size="12", bgcolor=constants.DEFAULT_BGCOLOR, rankdir=constants.DEFAULT_RANKDIR_GVIZ,
@@ -243,6 +315,8 @@ def graphviz_visualization(activities_count, dfg, image_format="png", measure="f
     penwidth = assign_penwidth_edges(ext_dfg)
 
     dfg_edges = sorted(list(dfg.keys()))
+    if start_activities_to_include and end_activities_to_include:
+        activities_to_include, dfg_edges = sort_dfg_reachability(dfg_edges, start_activities_to_include, end_activities_to_include)
 
     activities_map = {}
 
