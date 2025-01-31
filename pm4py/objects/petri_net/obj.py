@@ -25,7 +25,6 @@ from typing import Any, Collection, Dict
 
 
 class Marking(Counter):
-    pass
 
     def __hash__(self):
         return frozenset(self).__hash__() # credits egrocha
