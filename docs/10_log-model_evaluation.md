@@ -72,9 +72,9 @@ Buijs, Joos CAM, Boudewijn F. van Dongen, and Wil MP van der Aalst. "Quality dim
 
 Basically, a model is considered general if the elements of the model are visited frequently enough during a replay operation (of the log on the model). A model may perfectly fit the log and be perfectly precise (for example, reporting the traces of the log as sequential models going from the initial marking to the final marking; a choice is operated at the initial marking). Hence, to measure generalization, a token-based replay operation is performed, and generalization is calculated as
 
-\[ 1 - \text{avg}_t (\sqrt{1.0 / \text{freq}(t)}) \]
+$$ 1 - \text{avg}_t (\sqrt{1.0 / \text{freq}(t)}) $$
 
-where \(\text{avg}_t\) is the average of the inner value over all the transitions, \(\sqrt{}\) is the square root, and \(\text{freq}(t)\) is the frequency of \(t\) after the replay.
+where $\text{avg}_t$ is the average of the inner value over all the transitions, $\sqrt{}$ is the square root, and $\text{freq}(t)$ is the frequency of $t$ after the replay.
 
 To calculate the generalization between an event log and a Petri net model using the generalization method proposed in this section, use the code on the right side. The resulting value is a number between `0` and `1`.
 
@@ -90,9 +90,9 @@ if __name__ == "__main__":
 Simplicity is the fourth dimension to analyze a process model. In this case, we define simplicity by considering only the Petri net model. The criterion we use for simplicity is the inverse arc degree, as described in the following research paper:
 Blum, Fabian Rojas. "Metrics in process discovery." Technical Report TR/DCC-2015-6, Computer Science Department, University of Chile, 2015.
 
-First, we consider the average degree for a place/transition of the Petri net, defined as the sum of the number of input arcs and output arcs. If all the places have at least one input arc and one output arc, the number is at least 2. Choosing a number \(k\) between 0 and infinity, simplicity based on the inverse arc degree is defined as
+First, we consider the average degree for a place/transition of the Petri net, defined as the sum of the number of input arcs and output arcs. If all the places have at least one input arc and one output arc, the number is at least 2. Choosing a number $k$ between 0 and infinity, simplicity based on the inverse arc degree is defined as
 
-\[ 1.0 / (1.0 + \max(\text{mean\_degree} - k, 0)) \]
+$$ 1.0 / (1.0 + \max(\mathrm{mean\_deg} - k, 0)) $$
 
 To calculate the simplicity of a Petri net model using the inverse arc degree, use the following code. The resulting value is a number between `0` and `1`.
 
@@ -144,7 +144,7 @@ from pm4py.algo.simulation.playout.petri_net import algorithm as simulator
 
 if __name__ == "__main__":
     playout_log = simulator.apply(
-        net, im, fm, 
+        net, im, fm,
         parameters={simulator.Variants.STOCHASTIC_PLAYOUT.value.Parameters.LOG: log},
         variant=simulator.Variants.STOCHASTIC_PLAYOUT
     )
