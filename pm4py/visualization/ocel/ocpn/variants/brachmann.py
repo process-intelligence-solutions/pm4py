@@ -561,7 +561,7 @@ def _assign_layers(layout_data: Dict) -> bool:
 
         print(f"  Setting up LP with {num_vars} variables and {Aub_combined.shape[0]} constraints.")
         sol = lp_solver.apply(c, Aub_combined, bub_combined, Aeq, beq,
-                              parameters={"verbose": False})  # Add verbose=True for debugging
+                              parameters={"verbose": False}, variant=lp_solver.SCIPY)  # Add verbose=True for debugging
 
         if sol is None:
             print("  LP Solver did not return a solution.")
@@ -569,7 +569,7 @@ def _assign_layers(layout_data: Dict) -> bool:
             # Or error out
             return False
 
-        points = lp_solver.get_points_from_sol(sol)
+        points = lp_solver.get_points_from_sol(sol, variant=lp_solver.SCIPY)
 
         if points is None or len(points) != num_vars:
             print("  LP Solver failed to extract points or returned incorrect number.")
