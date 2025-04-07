@@ -321,6 +321,28 @@ def acyclic_net_variants(net, initial_marking, final_marking, activity_key=xes_u
     return trace_variants
 
 
+def get_place_by_name(net: PetriNet, place_name) -> Optional[PetriNet.Place]:
+    """
+    Get a place by its name
+
+    Parameters
+    ------------
+    net
+        Petri net
+    place_name
+        Place name
+
+    Returns
+    ------------
+    place
+        Place object
+    """
+    for t in net.places:
+        if t.name == place_name:
+            return t
+    return None
+    
+
 def get_transition_by_name(net: PetriNet, transition_name) -> Optional[PetriNet.Transition]:
     """
     Get a transition by its name
