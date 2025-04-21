@@ -1232,40 +1232,52 @@ def apply_variants_list_petri_string_multiprocessing(output, variants_list, petr
     output.put(ret)
 
 
-def get_diagnostics_dataframe(log: EventLog, tbr_output: typing.ListAlignments, parameters: Optional[Dict[Union[str, Parameters], Any]] = None) -> pd.DataFrame:
-    """
-    Gets the results of token-based replay in a dataframe
-
-    Parameters
-    --------------
-    log
-        Event log
-    tbr_output
-        Output of the token-based replay technique
-
-    Returns
-    --------------
-    dataframe
-        Diagnostics dataframe
-    """
+def get_diagnostics_dataframe(log: Union[EventLog, pd.DataFrame], tbr_output: typing.ListAlignments, parameters: Optional[Dict[Union[str, Parameters], Any]] = None) -> pd.DataFrame:
     if parameters is None:
         parameters = {}
-
     case_id_key = exec_utils.get_param_value(Parameters.CASE_ID_KEY, parameters, xes_util.DEFAULT_TRACEID_KEY)
-
     import pandas as pd
-
     diagn_stream = []
-
-    for index in range(len(log)):
-        case_id = log[index].attributes[case_id_key]
-        is_fit = tbr_output[index]["trace_is_fit"]
-        trace_fitness = tbr_output[index]["trace_fitness"]
-        missing = tbr_output[index]["missing_tokens"]
-        remaining = tbr_output[index]["remaining_tokens"]
-        produced = tbr_output[index]["produced_tokens"]
-        consumed = tbr_output[index]["consumed_tokens"]
-
-        diagn_stream.append({"case_id": case_id, "is_fit": is_fit, "trace_fitness": trace_fitness, "missing": missing, "remaining": remaining, "produced": produced, "consumed": consumed})
-
+    
+    if isinstance(log, pd.DataFrame):
+        for index, row in log.groupby(case_id_key).first().reset_index().iterrows():
+            case_id = row[case_id_key]
+            is_fit = tbr_output[index]["trace_is_fit"]
+            trace_fitness = tbr_output[index]["trace_fitness"]
+            missing = tbr_output[index]["missing_tokens"]
+            remaining = tbr_output[index]["remaining_tokens"]
+            produced = tbr_output[index]["produced_tokens"]
+            consumed = tbr_output[index]["consumed_tokens"]
+            place_max_capacities = tbr_output[index]["place_max_capacities"]
+            diagn_stream.append({
+                "case_id": case_id,
+                "is_fit": is_fit,
+                "trace_fitness": trace_fitness,
+                "missing": missing,
+                "remaining": remaining,
+                "produced": produced,
+                "consumed": consumed,
+                "place_max_capacities": place_max_capacities
+            })
+    else:
+        for index in range(len(log)):
+            case_id = log[index].attributes[case_id_key]
+            is_fit = tbr_output[index]["trace_is_fit"]
+            trace_fitness = tbr_output[index]["trace_fitness"]
+            missing = tbr_output[index]["missing_tokens"]
+            remaining = tbr_output[index]["remaining_tokens"]
+            produced = tbr_output[index]["produced_tokens"]
+            consumed = tbr_output[index]["consumed_tokens"]
+            place_max_capacities = tbr_output[index]["place_max_capacities"]
+            diagn_stream.append({
+                "case_id": case_id,
+                "is_fit": is_fit,
+                "trace_fitness": trace_fitness,
+                "missing": missing,
+                "remaining": remaining,
+                "produced": produced,
+                "consumed": consumed,
+                "place_max_capacities": place_max_capacities
+            })
+    
     return pandas_utils.instantiate_dataframe(diagn_stream)
