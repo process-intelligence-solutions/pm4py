@@ -254,6 +254,14 @@ def parse_element(bpmn_graph, counts, curr_el, parents, incoming_dict, outgoing_
             bpmn_graph.add_node(event_based_gateway)
             node = event_based_gateway
             nodes_dict[id] = node
+        elif tag.endswith("sequenceflow") or tag.endswith("messageflow") or tag.endswith("association"):
+            seq_flow_id = curr_el.get("id")
+            source_ref = curr_el.get("sourceRef")
+            target_ref = curr_el.get("targetRef")
+            name = curr_el.get("name").replace("\r", "").replace("\n", "") if "name" in curr_el.attrib else ""
+            if source_ref is not None and target_ref is not None:
+                incoming_dict[seq_flow_id] = (target_ref, process, tag, name, parents)
+                outgoing_dict[seq_flow_id] = (source_ref, process, tag, name, parents)
     elif tag.endswith("incoming"):  # incoming flow of a node
         name = curr_el.get("name").replace("\r", "").replace("\n", "") if "name" in curr_el.attrib else ""
         if node is not None:
@@ -264,14 +272,7 @@ def parse_element(bpmn_graph, counts, curr_el, parents, incoming_dict, outgoing_
         if node is not None:
             if curr_el.text.strip() not in outgoing_dict:
                 outgoing_dict[curr_el.text.strip()] = (node, process, tag, name, parents)
-    elif tag.endswith("sequenceflow") or tag.endswith("messageflow") or tag.endswith("association"):
-        seq_flow_id = curr_el.get("id")
-        source_ref = curr_el.get("sourceRef")
-        target_ref = curr_el.get("targetRef")
-        name = curr_el.get("name").replace("\r", "").replace("\n", "") if "name" in curr_el.attrib else ""
-        if source_ref is not None and target_ref is not None:
-            incoming_dict[seq_flow_id] = (target_ref, process, tag, name, parents)
-            outgoing_dict[seq_flow_id] = (source_ref, process, tag, name, parents)
+
     elif tag.endswith("waypoint"):  # contains information of x, y values of an edge
         if flow is not None:
             x = float(curr_el.get("x"))
