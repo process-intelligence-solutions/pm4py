@@ -19,7 +19,7 @@ visit <https://www.gnu.org/licenses/>.
 Website: https://processintelligence.solutions
 Contact: info@processintelligence.solutions
 '''
-from pm4py.visualization.bpmn.variants import classic, dagrejs
+from pm4py.visualization.bpmn.variants import classic, classic_v2, dagrejs
 from pm4py.util import exec_utils
 from enum import Enum
 from pm4py.visualization.common.gview import serialize, serialize_dot
@@ -30,6 +30,7 @@ import graphviz
 
 class Variants(Enum):
     CLASSIC = classic
+    CLASSIC_V2 = classic_v2
     DAGREJS = dagrejs
 
 

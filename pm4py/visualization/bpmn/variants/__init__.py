@@ -20,3 +20,5 @@ Website: https://processintelligence.solutions
 Contact: info@processintelligence.solutions
 '''
 from pm4py.visualization.bpmn.variants import classic
+from pm4py.visualization.bpmn.variants import classic_v2
+from pm4py.visualization.bpmn.variants import dagrejs

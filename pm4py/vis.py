@@ -383,6 +383,8 @@ def save_vis_bpmn(bpmn_graph: BPMN, file_path: str, bgcolor: str = "white", rank
     variant = None
     if variant_str == "classic":
         variant = bpmn_visualizer.Variants.CLASSIC
+    elif variant_str == "classic_v2":
+        variant = bpmn_visualizer.Variants.CLASSIC_V2        
     elif variant_str == "dagrejs":
         variant = bpmn_visualizer.Variants.DAGREJS
     props = _setup_parameters(fmt, bgcolor, rankdir, graph_title)
@@ -413,6 +415,8 @@ def view_bpmn(bpmn_graph: BPMN, format: str = constants.DEFAULT_FORMAT_GVIZ_VIEW
     variant = None
     if variant_str == "classic":
         variant = bpmn_visualizer.Variants.CLASSIC
+    elif variant_str == "classic_v2":
+        variant = bpmn_visualizer.Variants.CLASSIC_V2
     elif variant_str == "dagrejs":
         variant = bpmn_visualizer.Variants.DAGREJS
     props = _setup_parameters(fmt, bgcolor, rankdir, graph_title)
