@@ -19,4 +19,4 @@ setuptools==80.9.0
 six==1.17.0
 tqdm==4.67.1
 tzdata==2025.3
-wheel==0.46.1
+wheel==0.46.2
