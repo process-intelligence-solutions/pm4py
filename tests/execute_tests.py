@@ -16,6 +16,7 @@ import numpy
 import pandas
 import importlib.util
 import networkx
+from assignment_utilities import manual_coverage_helper as mch
 
 pm4py.util.constants.SHOW_PROGRESS_BAR = False
 pm4py.util.constants.SHOW_EVENT_LOG_DEPRECATION = False
@@ -392,8 +393,10 @@ if failed > 0:
 
 def main():
     if EXECUTE_TESTS:
+        mch.init_function("apply_partial_order_projection", slots=20)
         runner = unittest.TextTestRunner()
         result = runner.run(suite)
+        manual_report = mch.report()
 
         # Count test-level failures
         test_failures = len(result.failures)
@@ -424,6 +427,9 @@ def main():
         print(f"Total passed (including import fails): {total_pass_including_imports}")
         print(f"Total failed (including import fails): {total_fails_including_imports}")
         print(f"Overall pass ratio: {round(pass_ratio * 100, 2)}%")
+
+        print("\n--- Manual Branch Coverage ---")
+        print(f"{manual_report}\n")
 
     # Print library versions
     print("numpy version: " + str(numpy.__version__))
