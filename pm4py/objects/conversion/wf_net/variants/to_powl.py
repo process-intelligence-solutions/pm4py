@@ -157,6 +157,7 @@ def apply_partial_order_projection(net: PetriNet, subnet_transitions: Set[PetriN
     node_map = {}
 
     # Clone transitions in the subnet
+    # (Optional: you can track loop entered vs not entered; omitted here because it's not a branch in the original code.)
     for node in subnet_transitions:
         hit(FN, 17)  # cloning a transition in the subnet
         clone_transition(subnet_net, node, node_map)
