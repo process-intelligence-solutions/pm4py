@@ -1,6 +1,12 @@
 """
 Test suite for the apply_partial_order_projection function.
 
+These tests validate the observable behaviour of
+pm4py.objects.conversion.wf_net.variants.to_powl.apply_partial_order_projection.
+
+The tests are written in terms of functional requirements (contract-style behaviour),
+not in terms of internal branch IDs. A separate instrumentation map is kept below for
+coverage analysis only.
 """
 
 import unittest
@@ -9,7 +15,8 @@ from pm4py.objects.petri_net.obj import PetriNet
 from pm4py.objects.petri_net.utils import petri_utils
 from pm4py.objects.conversion.wf_net.variants.to_powl import apply_partial_order_projection
 
-# Manual coverage instrumentation reference (apply_partial_order_projection):
+# Manual coverage instrumentation reference (apply_partial_order_projection).
+# This is for coverage bookkeeping only and must not be treated as a behavioural specification.
 # 0: start uniqueness violated (raise)
 # 1: start uniqueness check passed (in uniqueness loop)
 # 2: start_places == end_places
@@ -37,14 +44,13 @@ class PartialOrderProjectionTest(unittest.TestCase):
 
     def _create_simple_sequence_net(self) -> tuple[PetriNet, PetriNet.Place, PetriNet.Place]:
         """
-        Create a simple sequential Petri net: p1 -> t1 -> p2 -> t2 -> p3
+        Create a simple sequential Petri net: p1 -> t1 -> p2 -> t2 -> p3.
 
         Returns:
             Tuple of (net, start_place, end_place)
         """
         net = PetriNet("simple_sequence")
 
-        # Create places
         p1 = PetriNet.Place("p1")
         p2 = PetriNet.Place("p2")
         p3 = PetriNet.Place("p3")
@@ -52,13 +58,11 @@ class PartialOrderProjectionTest(unittest.TestCase):
         net.places.add(p2)
         net.places.add(p3)
 
-        # Create transitions
         t1 = PetriNet.Transition("t1", "t1")
         t2 = PetriNet.Transition("t2", "t2")
         net.transitions.add(t1)
         net.transitions.add(t2)
 
-        # Add arcs
         petri_utils.add_arc_from_to(p1, t1, net)
         petri_utils.add_arc_from_to(t1, p2, net)
         petri_utils.add_arc_from_to(p2, t2, net)
@@ -89,7 +93,6 @@ class PartialOrderProjectionTest(unittest.TestCase):
         net.transitions.add(t1)
         net.transitions.add(t2)
 
-        # Both transitions share p1 as input and p2 as output
         petri_utils.add_arc_from_to(p1, t1, net)
         petri_utils.add_arc_from_to(p1, t2, net)
         petri_utils.add_arc_from_to(t1, p2, net)
@@ -99,7 +102,7 @@ class PartialOrderProjectionTest(unittest.TestCase):
 
     def _create_loop_net(self) -> tuple[PetriNet, PetriNet.Place]:
         """
-        Create a loop: p1 -> t1 -> p2 -> t2 -> p1
+        Create a loop: p1 -> t1 -> p2 -> t2 -> p1.
 
         Returns:
             Tuple of (net, loop_place)
@@ -119,13 +122,13 @@ class PartialOrderProjectionTest(unittest.TestCase):
         petri_utils.add_arc_from_to(p1, t1, net)
         petri_utils.add_arc_from_to(t1, p2, net)
         petri_utils.add_arc_from_to(p2, t2, net)
-        petri_utils.add_arc_from_to(t2, p1, net)  # Loop back!
+        petri_utils.add_arc_from_to(t2, p1, net)
 
         return net, p1
 
     def _create_net_for_internal_places(self) -> tuple[PetriNet, PetriNet.Place, PetriNet.Place, PetriNet.Place]:
         """
-        Create: p_start -> t1 -> p_internal -> t2 -> p_end
+        Create: p_start -> t1 -> p_internal -> t2 -> p_end.
 
         Returns:
             Tuple of (net, p_start, p_internal, p_end)
@@ -151,8 +154,13 @@ class PartialOrderProjectionTest(unittest.TestCase):
 
         return net, p_start, p_internal, p_end
 
-    def _assert_subnet_structure(self, subnet: PetriNet, expected_transitions: int,
-                                 expected_places: int, expected_arcs: int):
+    def _assert_subnet_structure(
+            self,
+            subnet: PetriNet,
+            expected_transitions: int,
+            expected_places: int,
+            expected_arcs: int,
+    ) -> None:
         """
         Assert that a subnet has the expected structure.
 
@@ -162,206 +170,190 @@ class PartialOrderProjectionTest(unittest.TestCase):
             expected_places: Expected number of places
             expected_arcs: Expected number of arcs
         """
-        self.assertEqual(len(subnet.transitions), expected_transitions,
-                        f"Expected {expected_transitions} transitions, got {len(subnet.transitions)}")
-        self.assertEqual(len(subnet.places), expected_places,
-                        f"Expected {expected_places} places, got {len(subnet.places)}")
-        self.assertEqual(len(subnet.arcs), expected_arcs,
-                        f"Expected {expected_arcs} arcs, got {len(subnet.arcs)}")
+        self.assertEqual(
+            len(subnet.transitions),
+            expected_transitions,
+            f"Expected {expected_transitions} transitions, got {len(subnet.transitions)}",
+        )
+        self.assertEqual(
+            len(subnet.places),
+            expected_places,
+            f"Expected {expected_places} places, got {len(subnet.places)}",
+        )
+        self.assertEqual(
+            len(subnet.arcs),
+            expected_arcs,
+            f"Expected {expected_arcs} arcs, got {len(subnet.arcs)}",
+        )
 
-    # Test Cases - Basic Functionality
+    # Test Cases - Behavioural requirements
 
-    def test_simple_subnet_extraction(self):
+    def test_simple_subnet_extraction(self) -> None:
         """
-        Basic subnet extraction with a simple sequence.
+        REQ-PROJECT-SUBNET:
+            Given a Petri net and a set of subnet transitions, the function returns a new Petri net
+            containing exactly those transitions and the required places/arcs to preserve their connectivity.
 
-        Targeted behaviours (instrumented build):
-        - start_places != end_places (hit 3)
-        - loop over arcs executes (hit 19)
-        - arcs that touch the selected subnet transition are processed (hit 6)
-        - mapped nodes are reused for boundary places and cloned subnet transition (hits 7 and 11)
-        - arcs unrelated to the selected subnet transitions are ignored (hit 15)
+        REQ-BOUNDARIES-DISTINCT:
+            If start_places and end_places differ, the returned start and end places must be different objects.
 
-        Note: In the current implementation, boundary places are cloned before arc processing,
-        so 'source/target not in node_map' (hits 8 and 12) is typically not exercised here.
+        REQ-IGNORE-NON-SUBNET-ARCS:
+            Arcs that do not touch any subnet transition must not appear in the projected subnet.
+
+        This test uses a simple sequence and projects only the first transition.
         """
 
-        # Create test net: p1 -> t1 -> p2 -> t2 -> p3
-        net, p1, p3 = self._create_simple_sequence_net()
+        net, p1, _p3 = self._create_simple_sequence_net()
 
-        # Get specific nodes
         t1 = [t for t in net.transitions if t.label == "t1"][0]
         p2 = [p for p in net.places if p.name == "p2"][0]
 
-        # Extract subnet containing only t1, with p1 as start and p2 as end
         subnet, new_start, new_end = apply_partial_order_projection(
             net,
-            {t1},      # Only t1 in subnet
-            {p1},      # Start boundary
-            {p2}       # End boundary
+            {t1},
+            {p1},
+            {p2},
         )
 
-        # Assertions
-        self._assert_subnet_structure(subnet,
-                                      expected_transitions=1,
-                                      expected_places=2,   # cloned p1 and p2 (boundaries)
-                                      expected_arcs=2)     # p1->t1 and t1->p2
+        self._assert_subnet_structure(
+            subnet,
+            expected_transitions=1,
+            expected_places=2,
+            expected_arcs=2,
+        )
 
-        # Verify start and end places are different (branch 3)
         self.assertIsNotNone(new_start)
         self.assertIsNotNone(new_end)
-        self.assertIsNot(new_start, new_end)
+        self.assertIsNot(
+            new_start,
+            new_end,
+            "Start and end place must be distinct when boundary sets differ.",
+        )
 
-        # Verify the transition is correctly cloned
         subnet_t1 = list(subnet.transitions)[0]
         self.assertEqual(subnet_t1.label, "t1")
 
-        # Verify arcs exist (branches 6, 15)
-        has_start_arc = any(arc.source == new_start and arc.target == subnet_t1
-                           for arc in subnet.arcs)
-        has_end_arc = any(arc.source == subnet_t1 and arc.target == new_end
-                         for arc in subnet.arcs)
-        self.assertTrue(has_start_arc, "Arc from start to t1 should exist")
-        self.assertTrue(has_end_arc, "Arc from t1 to end should exist")
+        has_start_arc = any(arc.source == new_start and arc.target == subnet_t1 for arc in subnet.arcs)
+        has_end_arc = any(arc.source == subnet_t1 and arc.target == new_end for arc in subnet.arcs)
+        self.assertTrue(has_start_arc, "Projected subnet must contain arc from start place to t1.")
+        self.assertTrue(has_end_arc, "Projected subnet must contain arc from t1 to end place.")
 
-    def test_same_start_and_end_place(self):
+    def test_same_start_and_end_place(self) -> None:
         """
-        Projection when start_places == end_places (loop-style boundary).
+        REQ-BOUNDARIES-SAME:
+            If start_places == end_places, the returned start and end places must be the same object.
 
-        Targeted behaviours (instrumented build):
-        - start_places == end_places (hit 2)
-        - arc processing is exercised for arcs touching the subnet (hit 6)
-        - internal place cloning occurs when encountered as an unmapped, non-boundary node
-          (hits 12 and 14, depending on arc order)
+        This test projects a loop fragment where the boundary place is both the start and end.
         """
 
-        # Create loop net: p1 -> t1 -> p2 -> t2 -> p1
         net, p1 = self._create_loop_net()
 
         t1 = [t for t in net.transitions if t.label == "t1"][0]
         t2 = [t for t in net.transitions if t.label == "t2"][0]
 
-        # Extract subnet with both transitions, where p1 is both start and end
         subnet, new_start, new_end = apply_partial_order_projection(
             net,
-            {t1, t2},   # Both transitions in the loop
-            {p1},       # Start place
-            {p1}        # End place (SAME as start!)
+            {t1, t2},
+            {p1},
+            {p1},
         )
 
-        # Key assertion: start and end should be the same place (branch 2)
-        self.assertIs(new_start, new_end,
-                     "Start and end place should be identical when boundaries are the same")
+        self.assertIs(
+            new_start,
+            new_end,
+            "Start and end must be identical when boundary sets are the same.",
+        )
 
-        # Verify subnet structure
-        self._assert_subnet_structure(subnet,
-                                      expected_transitions=2,
-                                      expected_places=2,   # p1 (start/end) and p2 (internal)
-                                      expected_arcs=4)     # p1->t1, t1->p2, p2->t2, t2->p1
+        self._assert_subnet_structure(
+            subnet,
+            expected_transitions=2,
+            expected_places=2,
+            expected_arcs=4,
+        )
 
-    def test_reuse_mapped_nodes(self):
+    def test_reuse_mapped_nodes(self) -> None:
         """
-        Reuse of already-mapped nodes in a parallel structure.
+        REQ-NODE-REUSE:
+            When multiple subnet transitions share the same boundary places, the projected subnet must not
+            duplicate those places (i.e., the shared boundary is represented by a single place instance).
 
-        Targeted behaviours (instrumented build):
-        - arc processing for subnet-related arcs (hit 6)
-        - reuse of mapped sources and targets (hits 7 and 11)
-
-        Note: Because boundary places are cloned before iterating arcs, the unmapped-source path
-        (hits 8 and 10) is typically not exercised in this test.
+        This test uses a parallel structure where both transitions share the same start and end places.
         """
 
-        # Create parallel net with shared places
         net, p1, p2 = self._create_parallel_net()
 
         t1 = [t for t in net.transitions if t.label == "t1"][0]
         t2 = [t for t in net.transitions if t.label == "t2"][0]
 
-        # Extract subnet with both transitions
         subnet, new_start, new_end = apply_partial_order_projection(
             net,
-            {t1, t2},   # Both transitions share p1 and p2
-            {p1},       # Start boundary
-            {p2}        # End boundary
+            {t1, t2},
+            {p1},
+            {p2},
         )
 
-        # Verify structure
-        self._assert_subnet_structure(subnet,
-                                      expected_transitions=2,
-                                      expected_places=2,   # p1 and p2 (both boundaries)
-                                      expected_arcs=4)     # p1->t1, p1->t2, t1->p2, t2->p2
+        self._assert_subnet_structure(
+            subnet,
+            expected_transitions=2,
+            expected_places=2,
+            expected_arcs=4,
+        )
 
-        # Verify that both transitions share the same start and end places
-        # (this confirms node reuse worked correctly)
         arcs_from_start = [arc for arc in subnet.arcs if arc.source == new_start]
         arcs_to_end = [arc for arc in subnet.arcs if arc.target == new_end]
 
-        self.assertEqual(len(arcs_from_start), 2, "Both transitions should connect from start")
-        self.assertEqual(len(arcs_to_end), 2, "Both transitions should connect to end")
+        self.assertEqual(len(arcs_from_start), 2, "Both transitions must connect from the single start place.")
+        self.assertEqual(len(arcs_to_end), 2, "Both transitions must connect to the single end place.")
+        self.assertEqual(
+            len(subnet.places),
+            2,
+            "Shared boundary places must not be duplicated in the projected subnet.",
+        )
 
-        # Verify only 2 places exist (not 4), confirming reuse
-        self.assertEqual(len(subnet.places), 2,
-                        "Should only have 2 places (boundaries), not duplicates")
-
-    def test_projection_preserves_subnet_structure(self):
+    def test_projection_preserves_subnet_structure(self) -> None:
         """
-        Subnet projection preserves structure and clones internal places.
+        REQ-INTERNAL-PLACE-CLONING:
+            If a selected subnet requires internal (non-boundary) places to preserve connectivity, those
+            places must be created in the projected subnet.
 
-        Targeted behaviours (instrumented build):
-        - internal (non-boundary) place is cloned when first encountered unmapped (hits 12 and 14)
-        - subsequent arcs reuse the cloned internal place via node_map (hit 7)
-        - reconstructed arcs preserve the intended sequencing through the internal place
+        REQ-ARC-RECONSTRUCTION:
+            The projected subnet must preserve the order/flow between the selected transitions via the
+            internal place(s).
+
+        This test projects a two-transition sequence with one internal place.
         """
 
-        # Create: p_start -> t1 -> p_internal -> t2 -> p_end
-        net, p_start, p_internal, p_end = self._create_net_for_internal_places()
+        net, p_start, _p_internal, p_end = self._create_net_for_internal_places()
 
         t1 = [t for t in net.transitions if t.label == "t1"][0]
         t2 = [t for t in net.transitions if t.label == "t2"][0]
 
-        # Extract subnet with both transitions
-        # p_start and p_end are boundaries, p_internal is internal and should be cloned
         subnet, new_start, new_end = apply_partial_order_projection(
             net,
-            {t1, t2},       # Both transitions
-            {p_start},      # Boundary start
-            {p_end}         # Boundary end
+            {t1, t2},
+            {p_start},
+            {p_end},
         )
 
-        # Verify structure
-        self._assert_subnet_structure(subnet,
-                                      expected_transitions=2,
-                                      expected_places=3,   # start, internal (cloned), end
-                                      expected_arcs=4)     # start->t1, t1->internal, internal->t2, t2->end
+        self._assert_subnet_structure(
+            subnet,
+            expected_transitions=2,
+            expected_places=3,
+            expected_arcs=4,
+        )
 
-        # Find the internal place in the subnet (not start, not end)
-        internal_places = [p for p in subnet.places
-                          if p != new_start and p != new_end]
-        self.assertEqual(len(internal_places), 1,
-                        "Should have exactly one internal place")
-
+        internal_places = [p for p in subnet.places if p != new_start and p != new_end]
+        self.assertEqual(len(internal_places), 1, "Projected subnet must contain exactly one internal place.")
         subnet_internal = internal_places[0]
+
         subnet_t1 = [t for t in subnet.transitions if t.label == "t1"][0]
         subnet_t2 = [t for t in subnet.transitions if t.label == "t2"][0]
 
-        # Verify arc connectivity
-        # start -> t1
-        self.assertTrue(any(arc.source == new_start and arc.target == subnet_t1
-                           for arc in subnet.arcs))
-
-        # t1 -> internal (branch 14: target not boundary, clone it)
-        self.assertTrue(any(arc.source == subnet_t1 and arc.target == subnet_internal
-                           for arc in subnet.arcs))
-
-        # internal -> t2 (branch 10: source not boundary, clone it)
-        self.assertTrue(any(arc.source == subnet_internal and arc.target == subnet_t2
-                           for arc in subnet.arcs))
-
-        # t2 -> end
-        self.assertTrue(any(arc.source == subnet_t2 and arc.target == new_end
-                           for arc in subnet.arcs))
+        self.assertTrue(any(arc.source == new_start and arc.target == subnet_t1 for arc in subnet.arcs))
+        self.assertTrue(any(arc.source == subnet_t1 and arc.target == subnet_internal for arc in subnet.arcs))
+        self.assertTrue(any(arc.source == subnet_internal and arc.target == subnet_t2 for arc in subnet.arcs))
+        self.assertTrue(any(arc.source == subnet_t2 and arc.target == new_end for arc in subnet.arcs))
 
 
 if __name__ == "__main__":
     unittest.main()
-
