@@ -158,13 +158,13 @@ def apply_partial_order_projection(net: PetriNet, subnet_transitions: Set[PetriN
 
     # Clone transitions in the subnet
     for node in subnet_transitions:
-        hit(FN, 17)  # cloning a transition in the subnet
+        hit(FN, 16)  # cloning a transition in the subnet
         clone_transition(subnet_net, node, node_map)
 
     list_start_places = list(start_places)
     old_start = list_start_places[0]
     for place in list_start_places[1:]:
-        hit(FN, 18)  # comparing start places for uniqueness
+        hit(FN, 17)  # comparing start places for uniqueness
         if not locally_identical(place, old_start, subnet_transitions):
             hit(FN, 0)  # start uniqueness violated
             raise Exception("Unique local start property is violated!")
@@ -182,6 +182,7 @@ def apply_partial_order_projection(net: PetriNet, subnet_transitions: Set[PetriN
         list_end_places = list(end_places)
         old_end = list_end_places[0]
         for place in list_end_places[1:]:
+            hit(FN, 18)  # comparing end places for uniqueness
             if not locally_identical(place, old_end, subnet_transitions):
                 hit(FN, 4)  # end uniqueness violated
                 raise Exception("Unique local end property is violated!")
@@ -228,9 +229,8 @@ def apply_partial_order_projection(net: PetriNet, subnet_transitions: Set[PetriN
                 cloned_target = clone_place(subnet_net, target, node_map)
 
             add_arc_from_to(cloned_source, cloned_target, subnet_net)
-            hit(FN, 15)  # arc added
         else:
-            hit(FN, 16)  # arc ignored (does not touch subnet transitions)
+            hit(FN, 15)  # arc ignored (does not touch subnet transitions)
 
     return subnet_net, new_start_place, new_end_place
 
