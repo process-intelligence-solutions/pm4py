@@ -1,23 +1,6 @@
 """
 Test suite for the apply_partial_order_projection function.
 
-This module tests the apply_partial_order_projection function from
-pm4py.objects.conversion.wf_net.variants.to_powl, which extracts a subnet
-from a Petri net based on a set of transitions and boundary places.
-
-The function has the following signature:
-    apply_partial_order_projection(
-        net: PetriNet,
-        subnet_transitions: Set[PetriNet.Transition],
-        start_places: Set[PetriNet.Place],
-        end_places: Set[PetriNet.Place]
-    ) -> Tuple[PetriNet, PetriNet.Place, PetriNet.Place]
-
-Branch coverage tracking:
-    The function contains 17 branches (IDs 0-16) that need to be tested.
-    These 4 tests cover 11 out of 17 branches (65% coverage):
-    - Branches covered: 2, 3, 6, 7, 8, 10, 11, 12, 14, 15, 16
-    - Branches not covered: 0, 1, 4, 5, 9, 13
 """
 
 import unittest
@@ -25,24 +8,31 @@ import unittest
 from pm4py.objects.petri_net.obj import PetriNet
 from pm4py.objects.petri_net.utils import petri_utils
 from pm4py.objects.conversion.wf_net.variants.to_powl import apply_partial_order_projection
-from assignment_utilities.manual_coverage_helper import init_function, report
+
+# Manual coverage instrumentation reference (apply_partial_order_projection):
+# 0: start uniqueness violated (raise)
+# 1: start uniqueness check passed (in uniqueness loop)
+# 2: start_places == end_places
+# 3: start_places != end_places
+# 4: end uniqueness violated (raise)
+# 5: end uniqueness check passed (in uniqueness loop)
+# 6: arc touches subnet transitions (processed)
+# 7: source found in node_map
+# 8: source not in node_map
+# 9: source is boundary and unmapped => continue (skip arc)
+# 10: source is not boundary and unmapped => clone place
+# 11: target found in node_map
+# 12: target not in node_map
+# 13: target is boundary and unmapped => continue (skip arc)
+# 14: target is not boundary and unmapped => clone place
+# 15: arc does not touch subnet transitions (ignored)
+# 16: iterating over subnet_transitions
+# 17: iterating start uniqueness loop (len(start_places) > 1)
+# 18: iterating end uniqueness loop (len(end_places) > 1)
+# 19: iterating over net.arcs
 
 
 class PartialOrderProjectionTest(unittest.TestCase):
-    """Test cases for the apply_partial_order_projection function."""
-
-    # @classmethod
-    # def setUpClass(cls):
-    #     init_function("apply_partial_order_projection", slots=20)
-    #
-    # @classmethod
-    # def tearDownClass(cls):
-    #     print("\n" + "="*80)
-    #     print("COVERAGE REPORT FOR apply_partial_order_projection")
-    #     print("="*80)
-    #     print(report(only_hit=True))
-    #     print("="*80)
-
     # Helper Methods
 
     def _create_simple_sequence_net(self) -> tuple[PetriNet, PetriNet.Place, PetriNet.Place]:
@@ -183,16 +173,19 @@ class PartialOrderProjectionTest(unittest.TestCase):
 
     def test_simple_subnet_extraction(self):
         """
-        Test basic subnet extraction with a simple sequence.
+        Basic subnet extraction with a simple sequence.
 
-        This should cover:
-        - Branch 3: start_places != end_places
-        - Branch 6: arc considered
-        - Branch 8: source not in node_map (first time)
-        - Branch 12: target not in node_map (first time)
-        - Branch 15: arc added
-        - Branch 16: arc ignored (arcs from t2 don't touch subnet)
+        Targeted behaviours (instrumented build):
+        - start_places != end_places (hit 3)
+        - loop over arcs executes (hit 19)
+        - arcs that touch the selected subnet transition are processed (hit 6)
+        - mapped nodes are reused for boundary places and cloned subnet transition (hits 7 and 11)
+        - arcs unrelated to the selected subnet transitions are ignored (hit 15)
+
+        Note: In the current implementation, boundary places are cloned before arc processing,
+        so 'source/target not in node_map' (hits 8 and 12) is typically not exercised here.
         """
+
         # Create test net: p1 -> t1 -> p2 -> t2 -> p3
         net, p1, p3 = self._create_simple_sequence_net()
 
@@ -233,11 +226,15 @@ class PartialOrderProjectionTest(unittest.TestCase):
 
     def test_same_start_and_end_place(self):
         """
-        Test projection when start_places == end_places (loop structure).
+        Projection when start_places == end_places (loop-style boundary).
 
-        This should cover:
-        - Branch 2: start_places == end_places
+        Targeted behaviours (instrumented build):
+        - start_places == end_places (hit 2)
+        - arc processing is exercised for arcs touching the subnet (hit 6)
+        - internal place cloning occurs when encountered as an unmapped, non-boundary node
+          (hits 12 and 14, depending on arc order)
         """
+
         # Create loop net: p1 -> t1 -> p2 -> t2 -> p1
         net, p1 = self._create_loop_net()
 
@@ -264,18 +261,16 @@ class PartialOrderProjectionTest(unittest.TestCase):
 
     def test_reuse_mapped_nodes(self):
         """
-        Test that nodes already in node_map are reused correctly.
+        Reuse of already-mapped nodes in a parallel structure.
 
-        This should cover:
-        - Branch 7: source found in node_map
-        - Branch 11: target found in node_map
+        Targeted behaviours (instrumented build):
+        - arc processing for subnet-related arcs (hit 6)
+        - reuse of mapped sources and targets (hits 7 and 11)
 
-        In a parallel structure where p1 feeds both t1 and t2, and both feed into p2:
-        - First arc p1->t1: p1 is not in map (branch 8)
-        - Second arc p1->t2: p1 is already mapped (branch 7)
-        - First arc t1->p2: p2 is not in map (branch 12)
-        - Second arc t2->p2: p2 is already mapped (branch 11)
+        Note: Because boundary places are cloned before iterating arcs, the unmapped-source path
+        (hits 8 and 10) is typically not exercised in this test.
         """
+
         # Create parallel net with shared places
         net, p1, p2 = self._create_parallel_net()
 
@@ -310,18 +305,14 @@ class PartialOrderProjectionTest(unittest.TestCase):
 
     def test_projection_preserves_subnet_structure(self):
         """
-        Test that the projected subnet preserves the structure of selected transitions.
+        Subnet projection preserves structure and clones internal places.
 
-        This specifically tests internal place cloning:
-        - Branch 10: source not boundary => clone (p_internal as source)
-        - Branch 14: target not boundary => clone (p_internal as target)
-
-        Verify that:
-        - All subnet transitions are cloned
-        - Internal places are cloned
-        - Arcs are correctly reconstructed
-        - Boundary places are replaced with single start/end places
+        Targeted behaviours (instrumented build):
+        - internal (non-boundary) place is cloned when first encountered unmapped (hits 12 and 14)
+        - subsequent arcs reuse the cloned internal place via node_map (hit 7)
+        - reconstructed arcs preserve the intended sequencing through the internal place
         """
+
         # Create: p_start -> t1 -> p_internal -> t2 -> p_end
         net, p_start, p_internal, p_end = self._create_net_for_internal_places()
 
