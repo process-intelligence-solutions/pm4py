@@ -31,7 +31,8 @@ enabled_tests = [
     "DiagnDfConfChecking", "ProcessModelEvaluationTests", "DecisionTreeTest", "GraphsForming",
     "HeuMinerTest", "MainFactoriesTest", "AlgorithmTest", "LogFilteringTest",
     "DataframePrefilteringTest", "StatisticsLogTest", "StatisticsDfTest", "TransitionSystemTest",
-    "ImpExpFromString", "WoflanTest", "OcelFilteringTest", "OcelDiscoveryTest", "LlmTest", "wf_net_tests"
+    "ImpExpFromString", "WoflanTest", "OcelFilteringTest", "OcelDiscoveryTest", "LlmTest", "wf_net_tests",
+    "ComparisonSymmetricTest"
 ]
 
 if importlib.util.find_spec("polars"):
@@ -394,6 +395,14 @@ if "wf_net_tests" in enabled_tests:
         print("PartialOrderProjectionTest import failed!")
         failed += 1
 
+if "ComparisonSymmetricTest" in enabled_tests:
+    try:
+        from tests.test_comparison_symmetric import ComparisonSymmetricTest
+        suite.addTests(loader.loadTestsFromTestCase(ComparisonSymmetricTest))
+    except:
+        print("ComparisonSymmetricTest import failed!")
+        failed += 1
+
 
 # If some imports failed, let's wait a little bit
 if failed > 0:
@@ -403,6 +412,7 @@ if failed > 0:
 def main():
     if EXECUTE_TESTS:
         mch.init_function("apply_partial_order_projection", slots=20)
+        mch.init_function("apply_comparison_symmetric", slots=23)
         runner = unittest.TextTestRunner()
         result = runner.run(suite)
         manual_report = mch.report()
