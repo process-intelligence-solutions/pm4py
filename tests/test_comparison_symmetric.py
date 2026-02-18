@@ -49,6 +49,43 @@ class ComparisonSymmetricTest(unittest.TestCase):
         self.assertIn("table", result.source, "Result contains table structure")
         self.assertIn("red", result.source, "Red color for differences")
 
+    def test_list_footprint_raises_exception(self):
+        """Passing a list as footprint should raise an exception"""
+        # Arrange
+        fp_list = [{"sequence": [("A", "B")], "parallel": []}]
+        fp_valid = {"sequence": [("A", "B")], "parallel": []}
+
+        # Act & Assert
+        with self.assertRaises(Exception) as context:
+            comparison_symmetric.apply(fp_list, fp_valid)
+        
+        self.assertIn("function does not work on list, has to be dictionary", str(context.exception))
+
+        # Test with second parameter as list
+        with self.assertRaises(Exception) as context2:
+            comparison_symmetric.apply(fp_valid, fp_list)
+        
+        self.assertIn("function does not work on list, has to be dictionary", str(context2.exception))
+
+    def test_graph_title_enabled(self):
+        """Visualization with graph title enabled"""
+        # Arrange
+        fp1 = {"sequence": [("A", "B")], "parallel": []}
+        fp2 = {"sequence": [("A", "B")], "parallel": []}
+        custom_title = "Title"
+        parameters = {
+            comparison_symmetric.Parameters.ENABLE_GRAPH_TITLE: True,
+            comparison_symmetric.Parameters.GRAPH_TITLE: custom_title
+        }
+
+        # Act
+        result = comparison_symmetric.apply(fp1, fp2, parameters=parameters)
+        
+        # Assert
+        self.assertIsInstance(result, Source, "Result should be a Graphviz object")
+        self.assertIn(custom_title, result.source, "Result should contain custom title")
+        self.assertIn("labelloc", result.source, "Graph has label location set")
+
 
 if __name__ == "__main__":
     unittest.main()
