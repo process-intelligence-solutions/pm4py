@@ -24,6 +24,10 @@ import tempfile
 from pm4py.util import exec_utils, constants
 from enum import Enum
 from typing import Optional, Dict, Any, Union
+from assignment_utilities.manual_coverage_helper import hit
+
+# INSTRUMENTED
+from assignment_utilities.manual_coverage_helper import hit
 
 
 class Parameters(Enum):
@@ -62,13 +66,22 @@ def apply(
     gviz
         Graphviz object
     """
+    print("apply CALLED")
+    FN = "apply_comparison_symmetric"
+    
     if parameters is None:
+        hit(FN, 0)
         parameters = {}
+    else:
+        hit(FN, 1)
 
     if type(fp1) is list or type(fp2) is list:
+        hit(FN, 2)
         raise Exception(
             "footprints visualizer does not work on list of footprints!"
         )
+    else:
+        hit(FN, 3)
 
     activities1 = sorted(
         list(
@@ -78,6 +91,7 @@ def apply(
             .union(set(x[1] for x in fp1["parallel"]))
         )
     )
+    
     activities2 = sorted(
         list(
             set(x[0] for x in fp2["sequence"])
@@ -107,11 +121,14 @@ def apply(
     footprints_table = ["digraph {\n"]
 
     if enable_graph_title:
+        hit(FN, 4)
         footprints_table.append(
             'label=<<FONT POINT-SIZE="20">'
             + graph_title
             + '</FONT>>;\nlabelloc="top";\n'
         )
+    else:
+        hit(FN, 5)
 
     footprints_table.append("tbl [\n")
     footprints_table.append("shape=plaintext\n")
@@ -123,38 +140,59 @@ def apply(
 
     footprints_table.append("<tr><td></td>")
     for act in activities:
+        hit(FN, 20)
         footprints_table.append("<td><b>" + act + "</b></td>")
     footprints_table.append("</tr>\n")
 
     for a1 in activities:
+        hit(FN, 21)
         footprints_table.append("<tr><td><b>" + a1 + "</b></td>")
         for a2 in activities:
+            hit(FN, 22)
             symb_1 = "?"
             symb_2 = "?"
 
             if a1 in activities1 and a2 in activities1:
+                hit(FN, 6)
                 symb_1 = XOR_SYMBOL
                 if (a1, a2) in fp1["parallel"]:
+                    hit(FN, 7)
                     symb_1 = PARALLEL_SYMBOL
                 elif (a1, a2) in fp1["sequence"]:
+                    hit(FN, 8)
                     symb_1 = SEQUENCE_SYMBOL
                 elif (a2, a1) in fp1["sequence"]:
+                    hit(FN, 9)
                     symb_1 = PREV_SYMBOL
+                else:
+                    hit(FN, 10)
+            else:
+                hit(FN, 11)
 
             if a1 in activities2 and a2 in activities2:
+                hit(FN, 12)
                 symb_2 = XOR_SYMBOL
                 if (a1, a2) in fp2["parallel"]:
+                    hit(FN, 13)
                     symb_2 = PARALLEL_SYMBOL
                 elif (a1, a2) in fp2["sequence"]:
+                    hit(FN, 14)
                     symb_2 = SEQUENCE_SYMBOL
                 elif (a2, a1) in fp2["sequence"]:
+                    hit(FN, 15)
                     symb_2 = PREV_SYMBOL
+                else:
+                    hit(FN, 16)
+            else:
+                hit(FN, 17)
 
             if symb_1 == symb_2:
+                hit(FN, 18)
                 footprints_table.append(
                     '<td><font color="black">' + symb_1 + "</font></td>"
                 )
             else:
+                hit(FN, 19)
                 footprints_table.append(
                     '<td><font color="red">'
                     + symb_1
