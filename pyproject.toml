@@ -1,0 +1,52 @@
+[build-system]
+# Removed setuptools-scm to prevent VCS errors
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pm4py"
+# 'name' and 'description' are now static to satisfy the parser
+description = "Process mining for Python"
+# Only 'version' remains dynamic to pull from pm4py/meta.py
+dynamic = ["version"]
+
+authors = [
+    {name = "Process Intelligence Solutions (PIS)", email = "info@processintelligence.solutions"}
+]
+requires-python = ">=3.11"
+readme = "README.md"
+license = {text = "AGPL-3.0"}
+
+dependencies = [
+    "colorama == 0.4.6",
+    "contourpy == 1.3.3",
+    "cycler == 0.12.1",
+    "fonttools == 4.61.1",
+    "graphviz == 0.21",
+    "kiwisolver == 1.4.9",
+    "lxml == 6.0.2",
+    "matplotlib == 3.10.8",
+    "networkx == 3.6.1",
+    "numpy == 2.4.2",
+    "packaging == 26.0",
+    "pandas == 3.0.1",
+    "pillow == 12.1.1",
+    "pulp >= 3.3.0",
+    "pyparsing == 3.3.2",
+    "python-dateutil == 2.9.0.post0",
+    "pytz == 2026.1.post1",
+    "scipy == 1.17.1",
+    "setuptools == 82.0.0",
+    "six == 1.17.0",
+    "tqdm == 4.67.3",
+    "tzdata == 2025.3",
+    "wheel == 0.46.3",
+]
+
+[tool.setuptools.dynamic]
+# Points to __version__ in pm4py/meta.py
+version = {attr = "pm4py.meta.__version__"}
+
+[tool.setuptools]
+packages = {find = {where = ["."], include = ["pm4py*"]}}
+include-package-data = true
