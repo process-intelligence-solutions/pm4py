@@ -1,4 +1,4 @@
-'''
+"""
 PM4Py – A Process Mining Library for Python
 Copyright (C) 2026 Process Intelligence Solutions GmbH
 
@@ -18,7 +18,8 @@ visit <https://www.gnu.org/licenses/>.
 
 Website: https://processintelligence.solutions
 Contact: info@processintelligence.solutions
-'''
+"""
+
 __name__ = "pm4py"
 VERSION = "2.7.22.1"
 __version__ = VERSION
