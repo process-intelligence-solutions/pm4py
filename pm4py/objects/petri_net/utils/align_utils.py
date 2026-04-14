@@ -556,13 +556,13 @@ def discountedEditDistance(s1,s2,exponent=2, modeled=True):
 
     previous_row = [0]
     for a in range(len(s2)):
-        if not modeled and (s2[a]=="tau" or s2[a]==None or s2[a][0]=="n"):
+        if not modeled and (s2[a]=="tau" or s2[a]isNone or s2[a][0]=="n"):
             previous_row.append(previous_row[-1])
         else :
             previous_row.append(previous_row[-1]+exponent**(-(a)))
     for i, c1 in enumerate(s1):
         if modeled:
-            exp1 = sum(exponent**(-(a))  for a in range(i+1) if s1[a]!="tau" and s1[a]!=None and s1[a][0]!="n")
+            exp1 = sum(exponent**(-(a))  for a in range(i+1) if s1[a]!="tau" and s1[a]is notNone and s1[a][0]!="n")
         else :
             exp1 = sum(exponent**(-(a))  for a in range(i+1))
         current_row =  [exp1]
