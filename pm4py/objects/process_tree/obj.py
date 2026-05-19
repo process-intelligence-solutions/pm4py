@@ -281,3 +281,68 @@ tells that you should execute B before executing C. In true concurrency, you can
     children = property(_get_children, _set_children)
     operator = property(_get_operator, _set_operator)
     label = property(_get_label, _set_label)
+
+
+class EnhancedProcessTree(ProcessTree):
+    def __init__(self, operator=None, parent=None, children=None, label=None, start=False, stop=False, skip=False):
+        super().__init__(operator=operator, parent=parent, children=children, label=label)
+        self._start = start
+        self._stop = stop
+        self._skip = skip
+
+    def _get_start(self):
+        return self._start
+
+    def _set_start(self, value):
+        self._start = value
+
+    def _get_stop(self):
+        return self._stop
+
+    def _set_stop(self, value):
+        self._stop = value
+
+    def _get_skip(self):
+        return self._skip
+
+    def _set_skip(self, value):
+        self._skip = value
+
+    start = property(_get_start, _set_start)
+    stop = property(_get_stop, _set_stop)
+    skip = property(_get_skip, _set_skip)
+
+    def __eq__(self, other):
+        is_equal = super().__eq__(other)
+
+        if is_equal and isinstance(other, EnhancedProcessTree):
+            return self.start == other.start and self._stop == other.stop and self._skip == other.skip
+
+        return is_equal
+
+    def __hash__(self):
+        return hash((super().__hash__(), self._start, self._stop, self._skip))
+
+    def to_string(self, level=0, indent=False, max_indent=sys.maxsize):
+        start_indicator = " (start)" if self.start else ""
+        stop_indicator = " (stop)" if self.stop else ""
+        skip_indicator = " (skip)" if self.skip else ""
+
+        if self.label is not None:
+            return f"{start_indicator}'{self.label}'{stop_indicator}{skip_indicator}"
+
+        if self.operator is None and self.label is None:
+            return "tau"
+
+        children_strs = [
+            child.to_string(level=level + 1, indent=indent, max_indent=max_indent)
+            for child in self.children
+        ]
+
+        if indent and level < max_indent:
+            indent_str = "\n" + "\t" * (level + 1)
+            children_joined = indent_str + indent_str.join(children_strs)
+            return f"{start_indicator}{self.operator}{stop_indicator}{skip_indicator}( {children_joined} \n{'\t' * level})"
+        else:
+            children_joined = ", ".join(children_strs)
+            return f"{start_indicator}{self.operator}{stop_indicator}{skip_indicator}( {children_joined} )"
