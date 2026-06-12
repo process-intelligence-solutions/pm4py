@@ -23,15 +23,15 @@ import time
 import uuid
 
 from pm4py.objects.petri_net.obj import Marking
-from pm4py.objects.petri_net.obj import PetriNet
+from pm4py.objects.petri_net.obj import PetriNet, ResetNet
+from pm4py.objects.petri_net.utils import reduction
 from pm4py.objects.petri_net.utils.petri_utils import (
     remove_transition,
     add_arc_from_to,
     remove_place,
 )
-from pm4py.objects.process_tree.obj import ProcessTree
 from pm4py.objects.process_tree.obj import Operator
-from pm4py.objects.petri_net.utils import reduction
+from pm4py.objects.process_tree.obj import ProcessTree
 
 
 class Counts(object):
@@ -320,16 +320,28 @@ def check_tau_mandatory_at_final_marking(tree):
 
     return condition1 or condition2 or condition3 or condition4
 
+def contains_start(tree):
+    """Recursively checks if a process tree contains a node with start point"""
+    if getattr(tree, 'start', False):
+        return True
+    for child in tree.children:
+        if contains_start(child):
+            return True
+    return False
+
 
 def recursively_add_tree(
-    parent_tree,
-    tree,
-    net,
-    initial_entity_subtree,
-    final_entity_subtree,
-    counts,
-    rec_depth,
-    force_add_skip=False,
+        parent_tree,
+        tree,
+        net,
+        initial_entity_subtree,
+        final_entity_subtree,
+        counts,
+        rec_depth,
+        force_add_skip=False,
+        global_sink=None,
+        parent_final_place=None,
+        global_source=None
 ):
     """
     Recursively add the subtrees to the Petri net
@@ -352,6 +364,13 @@ def recursively_add_tree(
         Recursion depth of the current iteration
     force_add_skip
         Boolean value that tells if the addition of a skip is mandatory
+    global_sink
+        The end place of the whole petri net
+    parent_final_place
+        The end place of the parent
+    global_source
+    The end place of the whole petri net
+        Then start place of the whole petri net
 
     Returns
     ----------
@@ -368,19 +387,29 @@ def recursively_add_tree(
         add_arc_from_to(initial_entity_subtree, initial_place, net)
     else:
         initial_place = initial_entity_subtree
+
+    if getattr(tree, 'start', False) and global_source is not None and initial_place != global_source:
+        tau_start = get_new_hidden_trans(counts, type_trans="tau_start")
+        net.transitions.add(tau_start)
+
+        # Connect: global source -> tau_start -> local initial place
+        add_arc_from_to(global_source, tau_start, net)
+        add_arc_from_to(tau_start, initial_place, net)
+
     if (
-        final_entity_subtree is not None
-        and type(final_entity_subtree) is PetriNet.Place
+            final_entity_subtree is not None
+            and type(final_entity_subtree) is PetriNet.Place
     ):
         final_place = final_entity_subtree
     else:
         final_place = get_new_place(counts)
         net.places.add(final_place)
         if (
-            final_entity_subtree is not None
-            and type(final_entity_subtree) is PetriNet.Transition
+                final_entity_subtree is not None
+                and type(final_entity_subtree) is PetriNet.Transition
         ):
             add_arc_from_to(final_place, final_entity_subtree, net)
+
     tree_childs = [child for child in tree.children]
 
     if force_add_skip:
@@ -400,14 +429,50 @@ def recursively_add_tree(
 
     if tree.operator == Operator.XOR:
         for subtree in tree_childs:
+
+            if getattr(subtree, 'start', False) and global_source is not None:
+                isolated_start_place = get_new_place(counts)
+                net.places.add(isolated_start_place)
+
+                # Normal execution path flows into the isolated place
+                tau_enter = get_new_hidden_trans(counts, type_trans="tau_xor_enter")
+                net.transitions.add(tau_enter)
+                add_arc_from_to(initial_place, tau_enter, net)
+                add_arc_from_to(tau_enter, isolated_start_place, net)
+
+                target_initial_place = isolated_start_place
+            else:
+                target_initial_place = initial_place
+
+            if getattr(subtree, 'stop', False) and global_sink is not None:
+                # Create the new intermediate place you mentioned
+                isolated_place = get_new_place(counts)
+                net.places.add(isolated_place)
+
+                # Draw a tau transition from this isolated place to the shared XOR end place
+                tau_continue = get_new_hidden_trans(counts, type_trans="tau_xor_continue")
+                net.transitions.add(tau_continue)
+                add_arc_from_to(isolated_place, tau_continue, net)
+                add_arc_from_to(tau_continue, final_place, net)
+
+                # 3. Pass this isolated place down to the child
+                target_final_place = isolated_place
+            else:
+                # Normal behavior for non-stop children
+                target_final_place = final_place
+
             net, counts, intermediate_place = recursively_add_tree(
                 tree,
                 subtree,
                 net,
-                initial_place,
-                final_place,
+                target_initial_place,
+                target_final_place,
                 counts,
                 rec_depth + 1,
+                global_sink=global_sink,
+                parent_final_place=final_place,
+                global_source=global_source
+
             )
     elif tree.operator == Operator.OR:
         new_initial_trans = get_new_hidden_trans(counts, type_trans="tauSplit")
@@ -468,6 +533,9 @@ def recursively_add_tree(
                 subtree_end_place,
                 counts,
                 rec_depth + 1,
+                global_sink=global_sink,
+                parent_final_place=final_place,
+                global_source=global_source
             )
 
     elif tree.operator == Operator.PARALLEL:
@@ -478,16 +546,82 @@ def recursively_add_tree(
         net.transitions.add(new_final_trans)
         add_arc_from_to(new_final_trans, final_place, net)
 
+        places_before = set(net.places)
+        trans_before = set(net.transitions)
+
+        has_internal_start = any(contains_start(child) for child in tree_childs)
+
+        if has_internal_start and global_source is not None:
+            # The AND block intercepts the start signal!
+            tau_start_split = get_new_hidden_trans(counts, type_trans="tau_start_split")
+            net.transitions.add(tau_start_split)
+            add_arc_from_to(global_source, tau_start_split, net)
+
         for subtree in tree_childs:
+            # Explicitly create the normal starting place for this specific branch
+            subtree_init_place = get_new_place(counts)
+            net.places.add(subtree_init_place)
+            add_arc_from_to(new_initial_trans, subtree_init_place, net)
+
+            branch_global_source = global_source
+
+            if has_internal_start and global_source is not None:
+                if contains_start(subtree):
+                    # This branch holds the start node. Pass a synced source down to it
+                    branch_sync_source = get_new_place(counts)
+                    net.places.add(branch_sync_source)
+                    add_arc_from_to(tau_start_split, branch_sync_source, net)
+                    branch_global_source = branch_sync_source
+                else:
+                    # This branch does NOT hold the start node. It starts normally.
+                    add_arc_from_to(tau_start_split, subtree_init_place, net)
+                    # Sever the source so it doesn't build false trapdoors inside itself
+                    branch_global_source = None
+
             net, counts, intermediate_place = recursively_add_tree(
                 tree,
                 subtree,
                 net,
-                new_initial_trans,
+                subtree_init_place,
                 new_final_trans,
                 counts,
                 rec_depth + 1,
+                global_sink=global_sink,
+                parent_final_place=final_place,
+                global_source=branch_global_source
             )
+
+        places_after = set(net.places)
+        trans_after = set(net.transitions)
+
+        and_places = places_after - places_before
+        new_transitions = trans_after - trans_before
+
+        new_trapdoors = [
+            t for t in new_transitions
+            if t.label is None and t.name and ("tau_stop" in t.name or "tau_skip" in t.name)
+        ]
+        for trapdoor in new_trapdoors:
+
+            is_valid_trapdoor = False
+
+            if "tau_stop" in trapdoor.name:
+                is_valid_trapdoor = True
+            elif "tau_skip" in trapdoor.name:
+                skip_targets = [arc.target for arc in trapdoor.out_arcs]
+                if final_place in skip_targets:
+                    is_valid_trapdoor = True
+
+            if is_valid_trapdoor:
+                for p in and_places:
+                    # Do not draw a reset arc if the place is already the standard input to the trapdoor
+                    if p not in [arc.source for arc in trapdoor.in_arcs]:
+                        reset_arc = ResetNet.ResetArc(p, trapdoor)
+                        net.arcs.add(reset_arc)
+                        p.out_arcs.add(reset_arc)
+                        trapdoor.in_arcs.add(reset_arc)
+
+
 
     elif tree.operator == Operator.INTERLEAVING:
         new_initial_trans = get_new_hidden_trans(counts, type_trans="tauSplit")
@@ -522,7 +656,8 @@ def recursively_add_tree(
             add_arc_from_to(fTrans, control_place, net)
 
             net, counts, intermediate_place = recursively_add_tree(
-                tree, subtree, net, iTrans, fTrans, counts, rec_depth + 1
+                tree, subtree, net, iTrans, fTrans, counts, rec_depth + 1, global_sink=global_sink,
+                parent_final_place=final_place
             )
 
     elif tree.operator == Operator.SEQUENCE:
@@ -539,6 +674,9 @@ def recursively_add_tree(
                 final_connection_place,
                 counts,
                 rec_depth + 1,
+                global_sink=global_sink,
+                parent_final_place=final_place,
+                global_source=global_source
             )
     elif tree.operator == Operator.LOOP:
         # if not parent_tree.operator == Operator.SEQUENCE:
@@ -560,6 +698,9 @@ def recursively_add_tree(
                 final_place,
                 counts,
                 rec_depth + 1,
+                global_sink=global_sink,
+                parent_final_place=final_place,
+                global_source=global_source
             )
             add_arc_from_to(final_place, loop_trans, net)
             add_arc_from_to(loop_trans, initial_place, net)
@@ -572,17 +713,38 @@ def recursively_add_tree(
                 None,
                 counts,
                 rec_depth + 1,
+                global_sink=global_sink,
+                parent_final_place=final_place,
+                global_source=global_source
             )
             int2 = None
             for i in range(1, len(tree_childs)):
+                child = tree_childs[i]
+                if getattr(child, 'start', False) and global_source is not None:
+                    isolated_loop_start = get_new_place(counts)
+                    net.places.add(isolated_loop_start)
+
+                    # Normal execution flows from int1 into the isolated place
+                    tau_loop_enter = get_new_hidden_trans(counts, type_trans="tau_loop_enter")
+                    net.transitions.add(tau_loop_enter)
+                    add_arc_from_to(int1, tau_loop_enter, net)
+                    add_arc_from_to(tau_loop_enter, isolated_loop_start, net)
+
+                    target_initial_place = isolated_loop_start
+                else:
+                    target_initial_place = int1
+
                 net, counts, int2 = recursively_add_tree(
                     tree,
                     tree_childs[i],
                     net,
-                    int1,
+                    target_initial_place,
                     int2,
                     counts,
                     rec_depth + 1,
+                    global_sink=global_sink,
+                    parent_final_place=final_place,
+                    global_source=global_source
                 )
 
             net, counts, int3 = recursively_add_tree(
@@ -593,12 +755,32 @@ def recursively_add_tree(
                 final_place,
                 counts,
                 rec_depth + 1,
+                global_sink=global_sink,
+                parent_final_place=final_place,
+                global_source=global_source
             )
 
             looping_place = int2
 
             add_arc_from_to(looping_place, loop_trans, net)
             add_arc_from_to(loop_trans, initial_place, net)
+
+    # If this tree node has a stop point, create a trapdoor to the global sink
+    if getattr(tree, 'stop', False) and global_sink is not None and final_place != global_sink:
+        tau_stop = get_new_hidden_trans(counts, type_trans="tau_stop")
+        net.transitions.add(tau_stop)
+
+        # Connect: local final place -> tau_stop -> global sink
+        add_arc_from_to(final_place, tau_stop, net)
+        add_arc_from_to(tau_stop, global_sink, net)
+
+    elif getattr(tree, 'skip', False) and parent_final_place is not None and final_place != parent_final_place:
+        tau_skip = get_new_hidden_trans(counts, type_trans="tau_skip")
+        net.transitions.add(tau_skip)
+
+        # Connect: local final place -> tau_skip -> PARENT'S final place
+        add_arc_from_to(final_place, tau_skip, net)
+        add_arc_from_to(tau_skip, parent_final_place, net)
 
     return net, counts, final_place
 
@@ -628,7 +810,7 @@ def apply(tree, parameters=None):
     del parameters
 
     counts = Counts()
-    net = PetriNet("imdf_net_" + str(time.time()))
+    net = ResetNet("imdf_net_" + str(time.time()))
     initial_marking = Marking()
     final_marking = Marking()
     source = get_new_place(counts)
@@ -661,7 +843,8 @@ def apply(tree, parameters=None):
         final_place = sink
 
     net, counts, last_added_place = recursively_add_tree(
-        tree, tree, net, initial_place, final_place, counts, 0
+        tree, tree, net, initial_place, final_place, counts, 0, global_sink=sink, parent_final_place=final_place,
+        global_source=source
     )
 
     reduction.apply_simple_reduction(net)
