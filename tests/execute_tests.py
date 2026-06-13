@@ -438,6 +438,14 @@ if "TestPolarsProcessConformance" in enabled_tests:
         print("TestPolarsProcessConformance import failed!")
         failed += 1
 
+if "MDLCompressionTest" in enabled_tests:
+    try:
+        from tests.mdl_compression import MDLCompressionTest
+        suite.addTests(loader.loadTestsFromTestCase(MDLCompressionTest))
+    except:
+        print(f"MDLCompressionTest import failed!")
+        failed += 1
+
 # If some imports failed, let's wait a little bit
 if failed > 0:
     time.sleep(7.5)
