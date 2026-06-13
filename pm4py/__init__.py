@@ -140,6 +140,7 @@ from pm4py.discovery import (
     discover_petri_net_inductive,
     discover_petri_net_genetic,
     discover_process_tree_inductive,
+    discover_process_tree_mdl,
     discover_heuristics_net,
     discover_dfg,
     discover_footprints,

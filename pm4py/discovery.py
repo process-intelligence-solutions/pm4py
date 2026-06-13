@@ -768,6 +768,63 @@ def discover_process_tree_inductive(
 
     return inductive_miner.apply(log, variant=variant, parameters=parameters)
 
+def discover_process_tree_mdl(
+    log: Union[EventLog, pd.DataFrame],
+    noise_threshold: float = 0.0,
+    activity_key: str = "concept:name",
+    timestamp_key: str = "time:timestamp",
+    case_id_key: str = "case:concept:name",
+) -> ProcessTree:
+    """
+    Discovers an Enhanced Process Tree using MDL-driven Event Log Compression.
+
+    The algorithm first compresses fragmented trace variants into master traces by
+    inferring grammatical overlaps (Prefix, Suffix, Infix, Skip). The compressed
+    log is then passed to the Inductive Miner, yielding a highly structured Process Tree.
+    Annotations for dynamic routing (start, stop, skip) are calculated and will be applied
+    to the tree.
+
+    :param log: Event log or Pandas DataFrame.
+    :param noise_threshold: Noise threshold applied to the underlying Inductive Miner (default: 0.0).
+    :param activity_key: Attribute to be used for the activity (default: "concept:name").
+    :param timestamp_key: Attribute to be used for the timestamp (default: "time:timestamp").
+    :param case_id_key: Attribute to be used as case identifier (default: "case:concept:name").
+    :return: An EnhancedProcessTree object.
+    :rtype: ``EnhancedProcessTree``
+
+    .. code-block:: python3
+
+        import pm4py
+
+        process_tree = pm4py.discover_process_tree_mdl(
+            dataframe,
+            activity_key='concept:name',
+            case_id_key='case:concept:name',
+            timestamp_key='time:timestamp'
+        )
+    """
+    __event_log_deprecation_warning(log)
+
+    if check_is_pandas_dataframe(log):
+        check_pandas_dataframe_columns(
+            log,
+            activity_key=activity_key,
+            timestamp_key=timestamp_key,
+            case_id_key=case_id_key,
+        )
+
+    from pm4py.algo.discovery.mdl_compression import algorithm as mdl_discovery
+
+    parameters = get_properties(
+        log,
+        activity_key=activity_key,
+        timestamp_key=timestamp_key,
+        case_id_key=case_id_key,
+    )
+    parameters["noise_threshold"] = noise_threshold
+
+    return mdl_discovery.apply(log, parameters=parameters)
+
 
 def discover_heuristics_net(
     log: Union[EventLog, pd.DataFrame],
