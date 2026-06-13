@@ -46,7 +46,28 @@ class TraceCompressor:
             self.annotations[activity] = set()
         self.annotations[activity].add(property_type)
 
-    def run(self):
+    def to_event_log(self, activity_key="concept:name", timestamp_key="time:timestamp"):
+        """
+        Converts the internal compressed dictionary back into a standard PM4Py EventLog.
+        This ensures the output is 100% compatible with top-level PM4Py algorithms.
+        """
+        from pm4py.objects.log.obj import EventLog, Trace, Event
+        from datetime import datetime
+
+        new_log = EventLog()
+        for trace_tuple, frequency in self.log.items():
+            for _ in range(frequency):
+                trace = Trace()
+                for activity in trace_tuple:
+                    event = Event({
+                        activity_key: activity,
+                        timestamp_key: datetime.now()
+                    })
+                    trace.append(event)
+                new_log.append(trace)
+        return new_log
+
+    def run(self, activity_key="concept:name", timestamp_key="time:timestamp"):
         """The Main Convergence Engine with Untested Trace Tracking"""
         iteration = 1
         print(f"Initial Log Size: {len(self.log)} unique variants")
@@ -132,5 +153,6 @@ class TraceCompressor:
 
             iteration += 1
 
+        final_event_log = self.to_event_log(activity_key, timestamp_key)
         print(f"Final Log Size: {len(self.log)} unique variants")
-        return self.log, self.annotations
+        return final_event_log, self.annotations

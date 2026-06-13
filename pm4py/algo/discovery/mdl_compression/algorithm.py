@@ -24,14 +24,13 @@ from typing import Optional, Dict, Any, Union
 
 import pandas as pd
 
-from pm4py import util as pmutil
+from pm4py import util as pmutil, discover_process_tree_inductive
 from pm4py.objects.log.obj import EventLog
 from pm4py.objects.process_tree.obj import ProcessTree
 from pm4py.util import constants, exec_utils
 from pm4py.util import xes_constants as xes_util
 from pm4py.util.compression import util as comut
 from pm4py.util.compression.dtypes import UVCL
-from pm4py.algo.discovery.inductive import algorithm as inductive_miner
 from pm4py.algo.discovery.mdl_compression.trace_compressor import TraceCompressor
 
 
@@ -52,31 +51,29 @@ def apply(
     if parameters is None:
         parameters = {}
 
-    ack = exec_utils.get_param_value(
-        Parameters.ACTIVITY_KEY, parameters, xes_util.DEFAULT_NAME_KEY
-    )
-    tk = exec_utils.get_param_value(
-        Parameters.TIMESTAMP_KEY, parameters, xes_util.DEFAULT_TIMESTAMP_KEY
-    )
-    cidk = exec_utils.get_param_value(
-        Parameters.CASE_ID_KEY, parameters, pmutil.constants.CASE_CONCEPT_NAME
-    )
+    ack = exec_utils.get_param_value(Parameters.ACTIVITY_KEY, parameters, xes_util.DEFAULT_NAME_KEY)
+    tk = exec_utils.get_param_value(Parameters.TIMESTAMP_KEY, parameters, xes_util.DEFAULT_TIMESTAMP_KEY)
+    cidk = exec_utils.get_param_value(Parameters.CASE_ID_KEY, parameters, pmutil.constants.CASE_CONCEPT_NAME)
+    noise_threshold = exec_utils.get_param_value(Parameters.NOISE_THRESHOLD, parameters, 0.0)
 
-    if type(obj) is UVCL:
+    if isinstance(obj, dict):
         uvcl = obj
     else:
-        uvcl = comut.get_variants(
-            comut.project_univariate(
-                obj, key=ack, df_glue=cidk, df_sorting_criterion_key=tk
-            )
-        )
+        uvcl = comut.get_variants(comut.project_univariate(obj, key=ack, df_glue=cidk, df_sorting_criterion_key=tk))
 
     compressor = TraceCompressor(uvcl)
-    compressed_uvcl, annotations = compressor.run()
+    compressed_log, annotations = compressor.run(activity_key=ack, timestamp_key=tk)
 
-    tree = inductive_miner.apply(compressed_uvcl, parameters=parameters)
+    # 3. Safely call the top-level Inductive Miner API
+    standard_tree = discover_process_tree_inductive(
+        compressed_log,
+        noise_threshold=noise_threshold,
+        activity_key=ack,
+        timestamp_key=tk,
+        case_id_key=cidk
+    )
 
-    # TODO: Add the annotations (start, stop, skip) to the ProcessTree nodes.
-    # We will build an annotator script later that traverses 'tree' and uses 'annotations'
+    from pm4py.objects.process_tree.utils.enhanced import convert_to_enhanced_tree
+    enhanced_tree = convert_to_enhanced_tree(standard_tree, annotations)
 
-    return tree
+    return enhanced_tree
