@@ -768,7 +768,7 @@ def discover_process_tree_inductive(
 
     return inductive_miner.apply(log, variant=variant, parameters=parameters)
 
-def discover_process_tree_mdl(
+def discover_enhanced_process_tree(
     log: Union[EventLog, pd.DataFrame],
     noise_threshold: float = 0.0,
     activity_key: str = "concept:name",
