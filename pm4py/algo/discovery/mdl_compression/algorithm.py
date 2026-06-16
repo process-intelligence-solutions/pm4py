@@ -26,7 +26,7 @@ import pandas as pd
 
 from pm4py import util as pmutil, discover_process_tree_inductive
 from pm4py.objects.log.obj import EventLog
-from pm4py.objects.process_tree.obj import ProcessTree
+from pm4py.objects.process_tree.obj import ProcessTree, EnhancedProcessTree
 from pm4py.util import constants, exec_utils
 from pm4py.util import xes_constants as xes_util
 from pm4py.util.compression import util as comut
@@ -44,7 +44,7 @@ class Parameters(Enum):
 def apply(
         obj: Union[EventLog, pd.DataFrame, UVCL],
         parameters: Optional[Dict[Any, Any]] = None,
-) -> ProcessTree:
+) -> EnhancedProcessTree:
     """
     Applies the Minimum Description Length (MDL) Compression discovery algorithm.
     """

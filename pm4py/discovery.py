@@ -39,7 +39,7 @@ from pm4py.objects.trie.obj import Trie
 from pm4py.objects.log.obj import EventLog
 from pm4py.objects.log.obj import EventStream
 from pm4py.objects.petri_net.obj import PetriNet, Marking
-from pm4py.objects.process_tree.obj import ProcessTree
+from pm4py.objects.process_tree.obj import ProcessTree, EnhancedProcessTree
 from pm4py.util.pandas_utils import (
     check_is_pandas_dataframe,
     check_pandas_dataframe_columns,
@@ -774,7 +774,7 @@ def discover_enhanced_process_tree(
     activity_key: str = "concept:name",
     timestamp_key: str = "time:timestamp",
     case_id_key: str = "case:concept:name",
-) -> ProcessTree:
+) -> EnhancedProcessTree:
     """
     Discovers an Enhanced Process Tree using MDL-driven Event Log Compression.
 
