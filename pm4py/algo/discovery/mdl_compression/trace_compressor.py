@@ -19,6 +19,8 @@ visit <https://www.gnu.org/licenses/>.
 Website: https://processintelligence.solutions
 Contact: info@processintelligence.solutions
 '''
+from collections import Counter
+
 from pm4py.algo.discovery.mdl_compression.compression_rules import (
     rule_prefix, rule_suffix, rule_infix, rule_concatenation,
     rule_completion_stop, rule_completion_start, rule_skip, rule_duplication
@@ -31,15 +33,35 @@ class TraceCompressor:
         self.annotations = {}
 
         self.active_rules = [
+            # REDUCTIVE RULES (Safe for Loopy Logs)
             rule_prefix,
             rule_suffix,
             rule_infix,
             rule_skip,
+            # ADDITIVE/FUSION RULES
             rule_completion_stop,
             rule_completion_start,
-            rule_concatenation
-            # rule_duplication  <-- Keep off by default to prevent log explosion
+            rule_concatenation,
+            # rule_duplication  # <-- Keep off by default to prevent log explosion
         ]
+
+        self.max_loop_depths = {}
+        for trace in self.log.keys():
+            counts = Counter(trace)
+            for act, count in counts.items():
+                if count > self.max_loop_depths.get(act, 0):
+                    self.max_loop_depths[act] = count
+
+    def _is_realistic(self, new_trace):
+        """
+        Validates that a newly synthesized trace does not violate
+        the maximum loop depths observed in the raw domain data.
+        """
+        counts = Counter(new_trace)
+        for act, count in counts.items():
+            if count > self.max_loop_depths.get(act, 0):
+                return False
+        return True
 
     def add_annotation(self, activity, property_type):
         if activity not in self.annotations:
@@ -103,6 +125,18 @@ class TraceCompressor:
                         result = rule_func(t1, t2)
 
                         if result:
+                            all_new_traces = list(result.get("replacements", {}).values()) + result.get("additions", [])
+
+                            violates_realism = False
+                            for nt in all_new_traces:
+                                if not self._is_realistic(nt):
+                                    violates_realism = True
+                                    break
+
+                            # If this rule creates an infinitely looping trace, reject it!
+                            if violates_realism:
+                                continue
+
                             if "annotations" in result:
                                 for act, props in result["annotations"].items():
                                     for p in props:
@@ -118,7 +152,10 @@ class TraceCompressor:
                                     new_traces[new_trace] += freq_to_move
                                     traces_to_delete.add(old_trace)
 
-                                    traces_to_test_next.add(new_trace)
+                                   # traces_to_test_next.add(new_trace)
+
+                                    if new_trace not in self.log:
+                                        traces_to_test_next.add(new_trace)
 
                             if "additions" in result:
                                 added_new = False
@@ -150,6 +187,8 @@ class TraceCompressor:
             if not merged_this_round:
                 print(f"Convergence Reached at Iteration {iteration}!")
                 break
+
+            print(f"{iteration} Iteration Completed!")
 
             iteration += 1
 
