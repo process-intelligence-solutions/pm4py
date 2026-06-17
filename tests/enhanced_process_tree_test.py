@@ -242,14 +242,14 @@ class EnhancedProcessTreeTest(unittest.TestCase):
         net, im, fm = to_petri_net.apply(tree)
 
         skip_transitions = [t for t in net.transitions if t.label is None and t.name and "tau_skip" in t.name]
-        self.assertEqual(len(skip_transitions), 1, "The tau_skip trapdoor was not created inside the AND block.")
+        self.assertEqual(len(skip_transitions), 1, "The tau_skip bypass was not created inside the AND block.")
         t_skip = skip_transitions[0]
 
         reset_arcs = [arc for arc in t_skip.in_arcs if isinstance(arc, ResetNet.ResetArc)]
 
         self.assertGreater(
             len(reset_arcs), 0,
-            "No Reset Arcs found! The skip trapdoor will deadlock the Petri net because concurrent tokens are left behind."
+            "No Reset Arcs found! The skip bypass will deadlock the Petri net because concurrent tokens are left behind."
         )
 
     def test_parallel_stop_reset_arcs(self):
@@ -263,14 +263,14 @@ class EnhancedProcessTreeTest(unittest.TestCase):
         p_final = list(fm.keys())[0]
 
         stop_transitions = [t for t in net.transitions if t.label is None and t.name and "tau_stop" in t.name]
-        self.assertEqual(len(stop_transitions), 1, "The tau_stop trapdoor was not created inside the AND block.")
+        self.assertEqual(len(stop_transitions), 1, "The tau_stop bypass was not created inside the AND block.")
         t_stop = stop_transitions[0]
 
         reset_arcs = [arc for arc in t_stop.in_arcs if isinstance(arc, ResetNet.ResetArc)]
-        self.assertGreater(len(reset_arcs), 0, "No Reset Arcs found for the stop trapdoor.")
+        self.assertGreater(len(reset_arcs), 0, "No Reset Arcs found for the stop bypass.")
 
         routes_to_sink = any(arc.target == p_final for arc in t_stop.out_arcs)
-        self.assertTrue(routes_to_sink, "The stop trapdoor inside the AND block does not route to the global sink.")
+        self.assertTrue(routes_to_sink, "The stop bypass inside the AND block does not route to the global sink.")
 
     def test_parallel_start_split(self):
         """

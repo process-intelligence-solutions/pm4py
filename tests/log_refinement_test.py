@@ -1,7 +1,6 @@
 import unittest
 
 from pm4py.algo.discovery.log_refinement.log_refinement import LogRefinement
-from pm4py.algo.discovery.log_refinement.refinement_rules import rule_duplication
 
 
 class LogRefinementTest(unittest.TestCase):
@@ -13,8 +12,8 @@ class LogRefinementTest(unittest.TestCase):
     def test_prefix_rule(self):
         """Tests that a prefix is absorbed and annotates a stop point."""
         log = self._convert_to_tuple_log([['a', 'b'], ['a', 'b', 'c', 'd']])
-        compressor = LogRefinement(log)
-        final_log, annotations = compressor.run()
+        log_refinement = LogRefinement(log)
+        final_log, annotations = log_refinement.run()
 
         self.assertEqual(set(final_log.keys()), {('a', 'b', 'c', 'd')})
         self.assertIn('stop', annotations.get('b', set()))
@@ -23,8 +22,8 @@ class LogRefinementTest(unittest.TestCase):
     def test_suffix_rule(self):
         """Tests that a suffix is absorbed and annotates a start point."""
         log = self._convert_to_tuple_log([['c', 'd'], ['a', 'b', 'c', 'd']])
-        compressor = LogRefinement(log)
-        final_log, annotations = compressor.run()
+        log_refinement = LogRefinement(log)
+        final_log, annotations = log_refinement.run()
 
         self.assertEqual(set(final_log.keys()), {('a', 'b', 'c', 'd')})
         self.assertIn('start', annotations.get('c', set()))
@@ -32,8 +31,8 @@ class LogRefinementTest(unittest.TestCase):
     def test_infix_rule(self):
         """Tests that an infix is absorbed and annotates both start and stop."""
         log = self._convert_to_tuple_log([['b', 'c'], ['a', 'b', 'c', 'd']])
-        compressor = LogRefinement(log)
-        final_log, annotations = compressor.run()
+        log_refinement = LogRefinement(log)
+        final_log, annotations = log_refinement.run()
 
         self.assertEqual(set(final_log.keys()), {('a', 'b', 'c', 'd')})
         self.assertIn('start', annotations.get('b', set()))
@@ -42,18 +41,27 @@ class LogRefinementTest(unittest.TestCase):
     def test_concatenation(self):
         """Tests fusing two traces with an edge-anchored overlap."""
         log = self._convert_to_tuple_log([['a', 'b', 'c', 'd'], ['d', 'e', 'f']])
-        compressor = LogRefinement(log)
-        final_log, annotations = compressor.run()
+        log_refinement = LogRefinement(log)
+        final_log, annotations = log_refinement.run()
 
         self.assertEqual(set(final_log.keys()), {('a', 'b', 'c', 'd', 'e', 'f')})
         self.assertIn('stop', annotations.get('d', set()))
         self.assertIn('start', annotations.get('d', set()))
 
+    def test_concatenation2(self):
+        """Tests fusing two traces with an edge-anchored overlap."""
+        log = self._convert_to_tuple_log([['a', 'b', 'c', 'd'], ['x', 'b', 'c']])
+        log_refinement = LogRefinement(log)
+        final_log, annotations = log_refinement.run()
+
+        self.assertEqual(set(final_log.keys()), {('a', 'b', 'c', 'd'), ('x', 'b', 'c', 'd')})
+        self.assertIn('stop', annotations.get('c', set()))
+
     def test_completion(self):
         """Tests completing a trace that ended prematurely but shares an internal pivot."""
         log = self._convert_to_tuple_log([['a', 'b', 'd'], ['x', 'y', 'd', 'e', 'f']])
-        compressor = LogRefinement(log)
-        final_log, annotations = compressor.run()
+        log_refinement = LogRefinement(log)
+        final_log, annotations = log_refinement.run()
 
         expected_traces = {('a', 'b', 'd', 'e', 'f'), ('x', 'y', 'd', 'e', 'f')}
         self.assertEqual(set(final_log.keys()), expected_traces)
@@ -66,31 +74,11 @@ class LogRefinementTest(unittest.TestCase):
             ['s', 'c', 'd', 'e'],
         ]
         log = self._convert_to_tuple_log(raw_traces)
-        compressor = LogRefinement(log)
-        final_log, annotations = compressor.run()
+        log_refinement = LogRefinement(log)
+        final_log, annotations = log_refinement.run()
 
         self.assertEqual(set(final_log.keys()), {('s', 'a', 'b', 'c', 'd', 'f', 'g', 'e')})
         self.assertIn('skip', annotations.get('d', set()))
-
-    def test_duplication(self):
-        """Tests cross-multiplying traces on a shared internal pivot."""
-        raw_traces = [
-            ['a', 'b', 'P', 'x', 'y'],
-            ['m', 'n', 'P', 'u', 'v']
-        ]
-        log = self._convert_to_tuple_log(raw_traces)
-        compressor = LogRefinement(log)
-
-        compressor.active_rules.append(rule_duplication)
-        final_log, _ = compressor.run()
-
-        expected_traces = {
-            ('a', 'b', 'P', 'x', 'y'),
-            ('m', 'n', 'P', 'u', 'v'),
-            ('a', 'b', 'P', 'u', 'v'),
-            ('m', 'n', 'P', 'x', 'y')
-        }
-        self.assertEqual(set(final_log.keys()), expected_traces)
 
     def test_emergent_rule(self):
         """
@@ -105,8 +93,8 @@ class LogRefinementTest(unittest.TestCase):
             ['a', 'b', 'd']
         ]
         log = self._convert_to_tuple_log(raw_traces)
-        compressor = LogRefinement(log)
-        final_log, annotations = compressor.run()
+        log_refinement = LogRefinement(log)
+        final_log, annotations = log_refinement.run()
 
         expected_traces = {('x', 'y', 'd', 'e', 'f'), ('a', 'b', 'd', 'e', 'f')}
         self.assertEqual(set(final_log.keys()), expected_traces)

@@ -22,7 +22,6 @@ Contact: info@processintelligence.solutions
 
 
 def rule_prefix(t1, t2):
-    # Determine which is the larger trace
     if len(t1) < len(t2):
         t_small, t_large = t1, t2
     elif len(t2) < len(t1):
@@ -188,43 +187,6 @@ def rule_completion_stop(t1, t2, min_overlap=1):
     res = _check_completion_stop(t1, t2, min_overlap)
     if res: return res
     return _check_completion_stop(t2, t1, min_overlap)
-
-
-def rule_duplication(t1, t2, min_pivot=1):
-    """
-    Rule 8 (Verdoppelung): Finds a shared internal pivot and cross-multiplies
-    the prefixes and suffixes to generate missing trace variants.
-    """
-    if len(t1) < 3 or len(t2) < 3:
-        return None
-
-    max_pivot = min(len(t1) - 2, len(t2) - 2)
-
-    if max_pivot < min_pivot:
-        return None
-
-    for k in range(max_pivot, min_pivot - 1, -1):
-        for i in range(1, len(t1) - k):
-            pivot = t1[i: i + k]
-
-            for j in range(1, len(t2) - k):
-                if t2[j: j + k] == pivot:
-                    prefix1, suffix1 = t1[:i], t1[i + k:]
-                    prefix2, suffix2 = t2[:j], t2[j + k:]
-
-                    cross1 = prefix1 + pivot + suffix2
-                    cross2 = prefix2 + pivot + suffix1
-
-                    # If these traces already exist in the log, generating them
-                    # doesn't help. We only return if we are discovering NEW variants.
-                    # (The Engine will handle the duplicate check, but we return them here)
-
-                    return {
-                        "additions": [cross1, cross2]
-                        # No replacements, no annotations!
-                    }
-    return None
-
 
 def rule_skip(t1, t2):
     """
