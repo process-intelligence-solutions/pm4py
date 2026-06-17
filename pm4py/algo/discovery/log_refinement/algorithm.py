@@ -25,13 +25,13 @@ from typing import Optional, Dict, Any, Union
 import pandas as pd
 
 from pm4py import util as pmutil, discover_process_tree_inductive
+from pm4py.algo.discovery.log_refinement.log_refinement import LogRefinement
 from pm4py.objects.log.obj import EventLog
-from pm4py.objects.process_tree.obj import ProcessTree, EnhancedProcessTree
+from pm4py.objects.process_tree.obj import EnhancedProcessTree
 from pm4py.util import constants, exec_utils
 from pm4py.util import xes_constants as xes_util
 from pm4py.util.compression import util as comut
 from pm4py.util.compression.dtypes import UVCL
-from pm4py.algo.discovery.mdl_compression.trace_compressor import TraceCompressor
 
 
 class Parameters(Enum):
@@ -46,7 +46,7 @@ def apply(
         parameters: Optional[Dict[Any, Any]] = None,
 ) -> EnhancedProcessTree:
     """
-    Applies the Minimum Description Length (MDL) Compression discovery algorithm.
+    Applies the Log Refinement discovery algorithm.
     """
     if parameters is None:
         parameters = {}
@@ -61,10 +61,9 @@ def apply(
     else:
         uvcl = comut.get_variants(comut.project_univariate(obj, key=ack, df_glue=cidk, df_sorting_criterion_key=tk))
 
-    compressor = TraceCompressor(uvcl)
+    compressor = LogRefinement(uvcl)
     compressed_log, annotations = compressor.run(activity_key=ack, timestamp_key=tk)
 
-    # 3. Safely call the top-level Inductive Miner API
     standard_tree = discover_process_tree_inductive(
         compressed_log,
         noise_threshold=noise_threshold,

@@ -21,15 +21,29 @@ Contact: info@processintelligence.solutions
 '''
 from collections import Counter
 
-from pm4py.algo.discovery.mdl_compression.compression_rules import (
+from pm4py.algo.discovery.log_refinement.refinement_rules import (
     rule_prefix, rule_suffix, rule_infix, rule_concatenation,
     rule_completion_stop, rule_completion_start, rule_skip, rule_duplication
 )
 
 
-class TraceCompressor:
+class LogRefinement:
     def __init__(self, tuple_log):
-        self.log = tuple_log
+        clean_log = {}
+        for trace, freq in tuple_log.items():
+            clean_trace = []
+            for act in trace:
+                # Add the activity if we have fewer than 2 items in our clean trace,
+                # OR if it is NOT the same as BOTH of the last two activities.
+                if len(clean_trace) < 2 or not (clean_trace[-1] == act and clean_trace[-2] == act):
+                    clean_trace.append(act)
+
+            clean_trace = tuple(clean_trace)
+
+            # Combine frequencies if multiple messy traces collapse into the same clean pattern
+            clean_log[clean_trace] = clean_log.get(clean_trace, 0) + freq
+
+        self.log = clean_log
         self.annotations = {}
 
         self.active_rules = [
@@ -151,8 +165,6 @@ class TraceCompressor:
 
                                     new_traces[new_trace] += freq_to_move
                                     traces_to_delete.add(old_trace)
-
-                                   # traces_to_test_next.add(new_trace)
 
                                     if new_trace not in self.log:
                                         traces_to_test_next.add(new_trace)

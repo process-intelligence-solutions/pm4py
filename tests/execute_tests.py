@@ -35,7 +35,7 @@ enabled_tests = [
     "DataframePrefilteringTest", "StatisticsLogTest", "StatisticsDfTest", "TransitionSystemTest",
     "ImpExpFromString", "WoflanTest", "OcelFilteringTest", "OcelDiscoveryTest", "LlmTest",
     "OcCausalNetSemanticsTest", "OcCausalNetSimulationTest", "OcCausalNetTest",
-    "OcpnSemanticsTest", "OcpnSimulationTest", "OcpnTest"
+    "OcpnSemanticsTest", "OcpnSimulationTest", "OcpnTest", "LogRefinementTest", "EnhancedProcessTreeTest",
 ]
 
 if importlib.util.find_spec("polars"):
@@ -65,6 +65,7 @@ if not importlib.util.find_spec("lxml"):
 if "SimplifiedInterfaceTest" in enabled_tests:
     try:
         from tests.simplified_interface import SimplifiedInterfaceTest
+
         suite.addTests(loader.loadTestsFromTestCase(SimplifiedInterfaceTest))
     except:
         print("SimplifiedInterfaceTest import failed!")
@@ -73,6 +74,7 @@ if "SimplifiedInterfaceTest" in enabled_tests:
 if "SimplifiedInterface2Test" in enabled_tests:
     try:
         from tests.simplified_interface_2 import SimplifiedInterface2Test
+
         suite.addTests(loader.loadTestsFromTestCase(SimplifiedInterface2Test))
     except:
         print("SimplifiedInterface2Test import failed!")
@@ -81,6 +83,7 @@ if "SimplifiedInterface2Test" in enabled_tests:
 if "DocTests" in enabled_tests:
     try:
         from tests.doc_tests import DocTests
+
         suite.addTests(loader.loadTestsFromTestCase(DocTests))
     except:
         print("DocTests import failed!")
@@ -89,6 +92,7 @@ if "DocTests" in enabled_tests:
 if "RoleDetectionTest" in enabled_tests:
     try:
         from tests.role_detection import RoleDetectionTest
+
         suite.addTests(loader.loadTestsFromTestCase(RoleDetectionTest))
     except:
         print("RoleDetectionTest import failed!")
@@ -97,6 +101,7 @@ if "RoleDetectionTest" in enabled_tests:
 if "PassedTimeTest" in enabled_tests:
     try:
         from tests.passed_time import PassedTimeTest
+
         suite.addTests(loader.loadTestsFromTestCase(PassedTimeTest))
     except:
         print("PassedTimeTest import failed!")
@@ -105,6 +110,7 @@ if "PassedTimeTest" in enabled_tests:
 if "Pm4pyImportPackageTest" in enabled_tests:
     try:
         from tests.imp_everything import Pm4pyImportPackageTest
+
         suite.addTests(loader.loadTestsFromTestCase(Pm4pyImportPackageTest))
     except:
         print("Pm4pyImportPackageTest import failed!")
@@ -113,6 +119,7 @@ if "Pm4pyImportPackageTest" in enabled_tests:
 if "XesImportExportTest" in enabled_tests:
     try:
         from tests.xes_impexp_test import XesImportExportTest
+
         suite.addTests(loader.loadTestsFromTestCase(XesImportExportTest))
     except:
         print("XesImportExportTest import failed!")
@@ -121,6 +128,7 @@ if "XesImportExportTest" in enabled_tests:
 if "CsvImportExportTest" in enabled_tests:
     try:
         from tests.csv_impexp_test import CsvImportExportTest
+
         suite.addTests(loader.loadTestsFromTestCase(CsvImportExportTest))
     except:
         print("CsvImportExportTest import failed!")
@@ -129,6 +137,7 @@ if "CsvImportExportTest" in enabled_tests:
 if "OtherPartsTests" in enabled_tests:
     try:
         from tests.other_tests import OtherPartsTests
+
         suite.addTests(loader.loadTestsFromTestCase(OtherPartsTests))
     except:
         print("OtherPartsTests import failed!")
@@ -137,6 +146,7 @@ if "OtherPartsTests" in enabled_tests:
 if "AlphaMinerTest" in enabled_tests:
     try:
         from tests.alpha_test import AlphaMinerTest
+
         suite.addTests(loader.loadTestsFromTestCase(AlphaMinerTest))
     except:
         print("AlphaMinerTest import failed!")
@@ -145,6 +155,7 @@ if "AlphaMinerTest" in enabled_tests:
 if "InductiveMinerTest" in enabled_tests:
     try:
         from tests.inductive_test import InductiveMinerTest
+
         suite.addTests(loader.loadTestsFromTestCase(InductiveMinerTest))
     except:
         print("InductiveMinerTest import failed!")
@@ -153,6 +164,7 @@ if "InductiveMinerTest" in enabled_tests:
 if "InductiveMinerTreeTest" in enabled_tests:
     try:
         from tests.inductive_tree_test import InductiveMinerTreeTest
+
         suite.addTests(loader.loadTestsFromTestCase(InductiveMinerTreeTest))
     except:
         print("InductiveMinerTreeTest import failed!")
@@ -161,6 +173,7 @@ if "InductiveMinerTreeTest" in enabled_tests:
 if "AlignmentTest" in enabled_tests:
     try:
         from tests.alignment_test import AlignmentTest
+
         suite.addTests(loader.loadTestsFromTestCase(AlignmentTest))
     except:
         print("AlignmentTest import failed!")
@@ -169,6 +182,7 @@ if "AlignmentTest" in enabled_tests:
 if "DfgTests" in enabled_tests:
     try:
         from tests.dfg_tests import DfgTests
+
         suite.addTests(loader.loadTestsFromTestCase(DfgTests))
     except:
         print("DfgTests import failed!")
@@ -177,6 +191,7 @@ if "DfgTests" in enabled_tests:
 if "SnaTests" in enabled_tests:
     try:
         from tests.sna_test import SnaTests
+
         suite.addTests(loader.loadTestsFromTestCase(SnaTests))
     except:
         print("SnaTests import failed!")
@@ -185,6 +200,7 @@ if "SnaTests" in enabled_tests:
 if "PetriImportExportTest" in enabled_tests:
     try:
         from tests.petri_imp_exp_test import PetriImportExportTest
+
         suite.addTests(loader.loadTestsFromTestCase(PetriImportExportTest))
     except:
         print("PetriImportExportTest import failed!")
@@ -193,6 +209,7 @@ if "PetriImportExportTest" in enabled_tests:
 if "BPMNTests" in enabled_tests:
     try:
         from tests.bpmn_tests import BPMNTests
+
         suite.addTests(loader.loadTestsFromTestCase(BPMNTests))
     except:
         print("BPMNTests import failed!")
@@ -201,6 +218,7 @@ if "BPMNTests" in enabled_tests:
 if "ETCTest" in enabled_tests:
     try:
         from tests.etc_tests import ETCTest
+
         suite.addTests(loader.loadTestsFromTestCase(ETCTest))
     except:
         print("ETCTest import failed!")
@@ -209,6 +227,7 @@ if "ETCTest" in enabled_tests:
 if "DiagnDfConfChecking" in enabled_tests:
     try:
         from tests.diagn_df_conf_checking import DiagnDfConfChecking
+
         suite.addTests(loader.loadTestsFromTestCase(DiagnDfConfChecking))
     except:
         print("DiagnDfConfChecking import failed!")
@@ -217,6 +236,7 @@ if "DiagnDfConfChecking" in enabled_tests:
 if "ProcessModelEvaluationTests" in enabled_tests:
     try:
         from tests.evaluation_tests import ProcessModelEvaluationTests
+
         suite.addTests(loader.loadTestsFromTestCase(ProcessModelEvaluationTests))
     except:
         print("ProcessModelEvaluationTests import failed!")
@@ -225,6 +245,7 @@ if "ProcessModelEvaluationTests" in enabled_tests:
 if "DecisionTreeTest" in enabled_tests:
     try:
         from tests.dec_tree_test import DecisionTreeTest
+
         suite.addTests(loader.loadTestsFromTestCase(DecisionTreeTest))
     except:
         print("DecisionTreeTest import failed!")
@@ -233,6 +254,7 @@ if "DecisionTreeTest" in enabled_tests:
 if "GraphsForming" in enabled_tests:
     try:
         from tests.graphs_forming import GraphsForming
+
         suite.addTests(loader.loadTestsFromTestCase(GraphsForming))
     except:
         print("GraphsForming import failed!")
@@ -241,6 +263,7 @@ if "GraphsForming" in enabled_tests:
 if "HeuMinerTest" in enabled_tests:
     try:
         from tests.heuminer_test import HeuMinerTest
+
         suite.addTests(loader.loadTestsFromTestCase(HeuMinerTest))
     except:
         print("HeuMinerTest import failed!")
@@ -249,6 +272,7 @@ if "HeuMinerTest" in enabled_tests:
 if "MainFactoriesTest" in enabled_tests:
     try:
         from tests.main_fac_test import MainFactoriesTest
+
         suite.addTests(loader.loadTestsFromTestCase(MainFactoriesTest))
     except:
         print("MainFactoriesTest import failed!")
@@ -257,6 +281,7 @@ if "MainFactoriesTest" in enabled_tests:
 if "AlgorithmTest" in enabled_tests:
     try:
         from tests.algorithm_test import AlgorithmTest
+
         suite.addTests(loader.loadTestsFromTestCase(AlgorithmTest))
     except:
         print("AlgorithmTest import failed!")
@@ -265,6 +290,7 @@ if "AlgorithmTest" in enabled_tests:
 if "LogFilteringTest" in enabled_tests:
     try:
         from tests.filtering_log_test import LogFilteringTest
+
         suite.addTests(loader.loadTestsFromTestCase(LogFilteringTest))
     except:
         print("LogFilteringTest import failed!")
@@ -273,6 +299,7 @@ if "LogFilteringTest" in enabled_tests:
 if "DataframePrefilteringTest" in enabled_tests:
     try:
         from tests.filtering_pandas_test import DataframePrefilteringTest
+
         suite.addTests(loader.loadTestsFromTestCase(DataframePrefilteringTest))
     except:
         print("DataframePrefilteringTest import failed!")
@@ -281,6 +308,7 @@ if "DataframePrefilteringTest" in enabled_tests:
 if "StatisticsLogTest" in enabled_tests:
     try:
         from tests.statistics_log_test import StatisticsLogTest
+
         suite.addTests(loader.loadTestsFromTestCase(StatisticsLogTest))
     except:
         print("StatisticsLogTest import failed!")
@@ -289,6 +317,7 @@ if "StatisticsLogTest" in enabled_tests:
 if "StatisticsDfTest" in enabled_tests:
     try:
         from tests.statistics_df_test import StatisticsDfTest
+
         suite.addTests(loader.loadTestsFromTestCase(StatisticsDfTest))
     except:
         print("StatisticsDfTest import failed!")
@@ -297,6 +326,7 @@ if "StatisticsDfTest" in enabled_tests:
 if "TransitionSystemTest" in enabled_tests:
     try:
         from tests.trans_syst_tests import TransitionSystemTest
+
         suite.addTests(loader.loadTestsFromTestCase(TransitionSystemTest))
     except:
         print("TransitionSystemTest import failed!")
@@ -305,6 +335,7 @@ if "TransitionSystemTest" in enabled_tests:
 if "ImpExpFromString" in enabled_tests:
     try:
         from tests.imp_exp_from_string import ImpExpFromString
+
         suite.addTests(loader.loadTestsFromTestCase(ImpExpFromString))
     except:
         print("ImpExpFromString import failed!")
@@ -313,6 +344,7 @@ if "ImpExpFromString" in enabled_tests:
 if "WoflanTest" in enabled_tests:
     try:
         from tests.woflan_tests import WoflanTest
+
         suite.addTests(loader.loadTestsFromTestCase(WoflanTest))
     except:
         print("WoflanTest import failed!")
@@ -321,6 +353,7 @@ if "WoflanTest" in enabled_tests:
 if "OcelFilteringTest" in enabled_tests:
     try:
         from tests.ocel_filtering_test import OcelFilteringTest
+
         suite.addTests(loader.loadTestsFromTestCase(OcelFilteringTest))
     except:
         print("OcelFilteringTest import failed!")
@@ -329,6 +362,7 @@ if "OcelFilteringTest" in enabled_tests:
 if "OcelDiscoveryTest" in enabled_tests:
     try:
         from tests.ocel_discovery_test import OcelDiscoveryTest
+
         suite.addTests(loader.loadTestsFromTestCase(OcelDiscoveryTest))
     except:
         print("OcelDiscoveryTest import failed!")
@@ -337,6 +371,7 @@ if "OcelDiscoveryTest" in enabled_tests:
 if "LlmTest" in enabled_tests:
     try:
         from tests.llm_test import LlmTest
+
         suite.addTests(loader.loadTestsFromTestCase(LlmTest))
     except:
         print("LlmTest import failed!")
@@ -345,6 +380,7 @@ if "LlmTest" in enabled_tests:
 if "OcCausalNetSemanticsTest" in enabled_tests:
     try:
         from tests.oc_causal_net_semantics_test import OCCausalNetSemanticsTest
+
         suite.addTests(loader.loadTestsFromTestCase(OCCausalNetSemanticsTest))
     except:
         print("OcCausalNetSemanticsTest import failed!")
@@ -353,6 +389,7 @@ if "OcCausalNetSemanticsTest" in enabled_tests:
 if "OcCausalNetSimulationTest" in enabled_tests:
     try:
         from tests.oc_causal_net_simulation_test import OCCausalNetSimulationTest
+
         suite.addTests(loader.loadTestsFromTestCase(OCCausalNetSimulationTest))
     except:
         print("OcCausalNetSimulationTest import failed!")
@@ -361,6 +398,7 @@ if "OcCausalNetSimulationTest" in enabled_tests:
 if "OcCausalNetTest" in enabled_tests:
     try:
         from tests.oc_causal_net_test import OCCausalNetTest
+
         suite.addTests(loader.loadTestsFromTestCase(OCCausalNetTest))
     except:
         print("OcCausalNetTest import failed!")
@@ -369,6 +407,7 @@ if "OcCausalNetTest" in enabled_tests:
 if "OcpnSemanticsTest" in enabled_tests:
     try:
         from tests.ocpn_semantics_test import OCPN_Semantics_Test
+
         suite.addTests(loader.loadTestsFromTestCase(OCPN_Semantics_Test))
     except:
         print("OcpnSemanticsTest import failed!")
@@ -377,6 +416,7 @@ if "OcpnSemanticsTest" in enabled_tests:
 if "OcpnSimulationTest" in enabled_tests:
     try:
         from tests.ocpn_simulation_test import OCPNSimulationTest
+
         suite.addTests(loader.loadTestsFromTestCase(OCPNSimulationTest))
     except:
         print("OcpnSimulationTest import failed!")
@@ -385,6 +425,7 @@ if "OcpnSimulationTest" in enabled_tests:
 if "OcpnTest" in enabled_tests:
     try:
         from tests.ocpn_test import OCPN_Test
+
         suite.addTests(loader.loadTestsFromTestCase(OCPN_Test))
     except:
         print("OCPN_Test import failed!")
@@ -393,6 +434,7 @@ if "OcpnTest" in enabled_tests:
 if "TestPolarsFilteringSimplified" in enabled_tests:
     try:
         from tests.polars_filters_simp_interface import TestPolarsFilteringSimplified
+
         suite.addTests(loader.loadTestsFromTestCase(TestPolarsFilteringSimplified))
     except:
         print("TestPolarsFilteringSimplified import failed!")
@@ -401,6 +443,7 @@ if "TestPolarsFilteringSimplified" in enabled_tests:
 if "TestPolarsFiltering" in enabled_tests:
     try:
         from tests.polars_filters_test import TestPolarsFiltering
+
         suite.addTests(loader.loadTestsFromTestCase(TestPolarsFiltering))
     except:
         print("TestPolarsFiltering import failed!")
@@ -409,6 +452,7 @@ if "TestPolarsFiltering" in enabled_tests:
 if "TestPolarsStatistics" in enabled_tests:
     try:
         from tests.polars_statistics_get import TestPolarsStatistics
+
         suite.addTests(loader.loadTestsFromTestCase(TestPolarsStatistics))
     except:
         print("TestPolarsStatistics import failed!")
@@ -417,6 +461,7 @@ if "TestPolarsStatistics" in enabled_tests:
 if "TestPolarsStatisticsSimplified" in enabled_tests:
     try:
         from tests.polars_statistics_simp_interface import TestPolarsStatisticsSimplified
+
         suite.addTests(loader.loadTestsFromTestCase(TestPolarsStatisticsSimplified))
     except:
         print("TestPolarsStatisticsSimplified import failed!")
@@ -425,6 +470,7 @@ if "TestPolarsStatisticsSimplified" in enabled_tests:
 if "TestPolarsProcessDiscovery" in enabled_tests:
     try:
         from tests.polars_process_discovery_test import TestPolarsProcessDiscovery
+
         suite.addTests(loader.loadTestsFromTestCase(TestPolarsProcessDiscovery))
     except:
         print("TestPolarsProcessDiscovery import failed!")
@@ -433,17 +479,28 @@ if "TestPolarsProcessDiscovery" in enabled_tests:
 if "TestPolarsProcessConformance" in enabled_tests:
     try:
         from tests.polars_cc_test import TestPolarsProcessConformance
+
         suite.addTests(loader.loadTestsFromTestCase(TestPolarsProcessConformance))
     except:
         print("TestPolarsProcessConformance import failed!")
         failed += 1
 
-if "MDLCompressionTest" in enabled_tests:
+if "EnhancedProcessTreeTest" in enabled_tests:
     try:
-        from tests.mdl_compression import MDLCompressionTest
-        suite.addTests(loader.loadTestsFromTestCase(MDLCompressionTest))
+        from tests.enhanced_process_tree_test import EnhancedProcessTreeTest
+
+        suite.addTests(loader.loadTestsFromTestCase(EnhancedProcessTreeTest))
     except:
-        print(f"MDLCompressionTest import failed!")
+        print(f"LogRefinementTest import failed!")
+        failed += 1
+
+if "LogRefinementTest" in enabled_tests:
+    try:
+        from tests.log_refinement_test import LogRefinementTest
+
+        suite.addTests(loader.loadTestsFromTestCase(LogRefinementTest))
+    except:
+        print(f"LogRefinementTest import failed!")
         failed += 1
 
 # If some imports failed, let's wait a little bit
@@ -472,7 +529,7 @@ def main():
         test_failures = len(result.failures)
         test_errors = len(result.errors)
         test_skipped = len(result.skipped)
-        test_runs = result.testsRun - test_skipped # apparently skipped tests count as successfully run tests
+        test_runs = result.testsRun - test_skipped  # apparently skipped tests count as successfully run tests
 
         # The number of actual test-method-level fails
         test_level_failed = test_failures + test_errors
@@ -526,10 +583,10 @@ def main():
 
     # Exit code logic: 0 if pass ratio is 100%, else 1
     if EXECUTE_TESTS and pass_ratio == 1:
-        #print("exiting with system code 0")
+        # print("exiting with system code 0")
         sys.exit(0)
     else:
-        #print("exiting with system code 1")
+        # print("exiting with system code 1")
         sys.exit(1)
 
 

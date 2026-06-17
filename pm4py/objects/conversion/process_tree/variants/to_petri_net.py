@@ -575,7 +575,7 @@ def recursively_add_tree(
                 else:
                     # This branch does NOT hold the start node. It starts normally.
                     add_arc_from_to(tau_start_split, subtree_init_place, net)
-                    # Sever the source so it doesn't build false trapdoors inside itself
+                    # Sever the source so it doesn't build false bypass inside itself
                     branch_global_source = None
 
             net, counts, intermediate_place = recursively_add_tree(
@@ -597,29 +597,29 @@ def recursively_add_tree(
         and_places = places_after - places_before
         new_transitions = trans_after - trans_before
 
-        new_trapdoors = [
+        bypass_transitions = [
             t for t in new_transitions
             if t.label is None and t.name and ("tau_stop" in t.name or "tau_skip" in t.name)
         ]
-        for trapdoor in new_trapdoors:
+        for bypass in bypass_transitions:
 
-            is_valid_trapdoor = False
+            is_valid_bypass = False
 
-            if "tau_stop" in trapdoor.name:
-                is_valid_trapdoor = True
-            elif "tau_skip" in trapdoor.name:
-                skip_targets = [arc.target for arc in trapdoor.out_arcs]
+            if "tau_stop" in bypass.name:
+                is_valid_bypass = True
+            elif "tau_skip" in bypass.name:
+                skip_targets = [arc.target for arc in bypass.out_arcs]
                 if final_place in skip_targets:
-                    is_valid_trapdoor = True
+                    is_valid_bypass = True
 
-            if is_valid_trapdoor:
+            if is_valid_bypass:
                 for p in and_places:
-                    # Do not draw a reset arc if the place is already the standard input to the trapdoor
-                    if p not in [arc.source for arc in trapdoor.in_arcs]:
-                        reset_arc = ResetNet.ResetArc(p, trapdoor)
+                    # Do not draw a reset arc if the place is already the standard input to the bypass transition
+                    if p not in [arc.source for arc in bypass.in_arcs]:
+                        reset_arc = ResetNet.ResetArc(p, bypass)
                         net.arcs.add(reset_arc)
                         p.out_arcs.add(reset_arc)
-                        trapdoor.in_arcs.add(reset_arc)
+                        bypass.in_arcs.add(reset_arc)
 
 
 
@@ -765,7 +765,7 @@ def recursively_add_tree(
             add_arc_from_to(looping_place, loop_trans, net)
             add_arc_from_to(loop_trans, initial_place, net)
 
-    # If this tree node has a stop point, create a trapdoor to the global sink
+    # If this tree node has a stop point, create a bypass transition to the global sink
     if getattr(tree, 'stop', False) and global_sink is not None and final_place != global_sink:
         tau_stop = get_new_hidden_trans(counts, type_trans="tau_stop")
         net.transitions.add(tau_stop)

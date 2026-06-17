@@ -776,7 +776,7 @@ def discover_enhanced_process_tree(
     case_id_key: str = "case:concept:name",
 ) -> EnhancedProcessTree:
     """
-    Discovers an Enhanced Process Tree using MDL-driven Event Log Compression.
+    Discovers an Enhanced Process Tree Event Log Refinement.
 
     The algorithm first compresses fragmented trace variants into master traces by
     inferring grammatical overlaps (Prefix, Suffix, Infix, Skip). The compressed
@@ -796,7 +796,7 @@ def discover_enhanced_process_tree(
 
         import pm4py
 
-        process_tree = pm4py.discover_process_tree_mdl(
+        process_tree = pm4py.discover_enhanced_process_tree(
             dataframe,
             activity_key='concept:name',
             case_id_key='case:concept:name',
@@ -813,7 +813,7 @@ def discover_enhanced_process_tree(
             case_id_key=case_id_key,
         )
 
-    from pm4py.algo.discovery.mdl_compression import algorithm as mdl_discovery
+    from pm4py.algo.discovery.log_refinement import algorithm as log_refinement_discovery
 
     parameters = get_properties(
         log,
@@ -823,7 +823,7 @@ def discover_enhanced_process_tree(
     )
     parameters["noise_threshold"] = noise_threshold
 
-    return mdl_discovery.apply(log, parameters=parameters)
+    return log_refinement_discovery.apply(log, parameters=parameters)
 
 
 def discover_heuristics_net(
