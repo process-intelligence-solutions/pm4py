@@ -41,6 +41,28 @@ class Parameters(Enum):
     NOISE_THRESHOLD = "noise_threshold"
 
 
+def _dict_to_event_log(tuple_log: dict, activity_key="concept:name", timestamp_key="time:timestamp"):
+    """
+    Converts the internal compressed dictionary back into a standard PM4Py EventLog.
+    This ensures the output is 100% compatible with top-level PM4Py algorithms.
+    """
+    from pm4py.objects.log.obj import EventLog, Trace, Event
+    from datetime import datetime
+
+    new_log = EventLog()
+    for trace_tuple, frequency in tuple_log.items():
+        for _ in range(frequency):
+            trace = Trace()
+            for activity in trace_tuple:
+                event = Event({
+                    activity_key: activity,
+                    timestamp_key: datetime.now()
+                })
+                trace.append(event)
+            new_log.append(trace)
+    return new_log
+
+
 def apply(
         obj: Union[EventLog, pd.DataFrame, UVCL],
         parameters: Optional[Dict[Any, Any]] = None,
@@ -61,11 +83,13 @@ def apply(
     else:
         uvcl = comut.get_variants(comut.project_univariate(obj, key=ack, df_glue=cidk, df_sorting_criterion_key=tk))
 
-    compressor = LogRefinement(uvcl)
-    compressed_log, annotations = compressor.run(activity_key=ack, timestamp_key=tk)
+    log_refinement = LogRefinement(uvcl)
+    revined_dict, annotations = log_refinement.run(activity_key=ack, timestamp_key=tk)
+
+    refined_event_log = _dict_to_event_log(revined_dict)
 
     standard_tree = discover_process_tree_inductive(
-        compressed_log,
+        refined_event_log,
         noise_threshold=noise_threshold,
         activity_key=ack,
         timestamp_key=tk,
