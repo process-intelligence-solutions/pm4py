@@ -39,9 +39,9 @@ class LogRefinement:
             rule_infix,
             rule_skip,
             # ADDITIVE/FUSION RULES
+            rule_concatenation,
             rule_completion_stop,
             rule_completion_start,
-            rule_concatenation,
         ]
 
         self.max_loop_depths = {}
@@ -120,7 +120,7 @@ class LogRefinement:
                         result = rule_func(t1, t2)
 
                         if result:
-                            all_new_traces = list(result.get("replacements", {}).values()) + result.get("additions", [])
+                            all_new_traces = list(result.get("replacements", {}).values())
 
                             violates_realism = False
                             for nt in all_new_traces:
@@ -139,16 +139,23 @@ class LogRefinement:
 
                             if "replacements" in result:
                                 for old_trace, new_trace in result["replacements"].items():
-                                    freq_to_move = self.log.get(old_trace, 0)
+
+                                    # 1. PULL LIVE FREQUENCY (In case the trace already ate something this round)
+                                    freq_to_move = new_traces.get(old_trace, self.log.get(old_trace, 0))
 
                                     if new_trace not in new_traces:
                                         new_traces[new_trace] = self.log.get(new_trace, 0)
 
+                                    # 2. TRANSFER MASS
                                     new_traces[new_trace] += freq_to_move
                                     traces_to_delete.add(old_trace)
 
-                                    if new_trace not in self.log:
-                                        traces_to_test_next.add(new_trace)
+                                    # 3. KILL THE GHOST: If the destroyed trace was buffered earlier, delete it!
+                                    if old_trace in new_traces:
+                                        del new_traces[old_trace]
+
+                                    # 4. ALWAYS TEST MODIFIED TRACES: Even if they already exist in the log
+                                    traces_to_test_next.add(new_trace)
 
                             merged_this_round = True
                             break
