@@ -67,7 +67,7 @@ class LogRefinement:
             self.annotations[activity] = set()
         self.annotations[activity].add(property_type)
 
-    def run(self, activity_key="concept:name", timestamp_key="time:timestamp"):
+    def run(self, limit=25):
         """The Main Convergence Engine with Untested Trace Tracking"""
         iteration = 1
         print(f"Initial Log Size: {len(self.log)} unique variants")
@@ -160,18 +160,17 @@ class LogRefinement:
 
             current_log_size = len(self.log)
             round_summary = dict(Counter(additions_this_round))
-            LIMIT = 25
 
             if current_log_size == previous_log_size:
                 stagnation_history.append(round_summary)
 
-                if len(stagnation_history) >= LIMIT:
-                    last_n = stagnation_history[-LIMIT:]
+                if len(stagnation_history) >= limit:
+                    last_n = stagnation_history[-limit:]
                     summaries_identical = all(s == last_n[0] for s in last_n)
 
                     if summaries_identical and len(last_n[0]) > 0:
                         print(f"\n[CIRCUIT BREAKER] Stutter Crawl (Runaway Train) Detected!")
-                        print(f"Log size stagnated at {current_log_size} variants for {LIMIT} iterations.")
+                        print(f"Log size stagnated at {current_log_size} variants for {limit} iterations.")
                         print(f"Theoretical convergence reached at Iteration {iteration}.")
                         print("--- Audit Trail of Exhausted Patience ---")
                         print(f"  -> The engine continuously synthesized {last_n[0]} without achieving consolidation.")

@@ -39,6 +39,7 @@ class Parameters(Enum):
     TIMESTAMP_KEY = constants.PARAMETER_CONSTANT_TIMESTAMP_KEY
     CASE_ID_KEY = constants.PARAMETER_CONSTANT_CASEID_KEY
     NOISE_THRESHOLD = "noise_threshold"
+    LIMIT = "limit"
 
 
 def _dict_to_event_log(tuple_log: dict, activity_key="concept:name", timestamp_key="time:timestamp"):
@@ -77,6 +78,7 @@ def apply(
     tk = exec_utils.get_param_value(Parameters.TIMESTAMP_KEY, parameters, xes_util.DEFAULT_TIMESTAMP_KEY)
     cidk = exec_utils.get_param_value(Parameters.CASE_ID_KEY, parameters, pmutil.constants.CASE_CONCEPT_NAME)
     noise_threshold = exec_utils.get_param_value(Parameters.NOISE_THRESHOLD, parameters, 0.0)
+    limit = Parameters.LIMIT
 
     if isinstance(obj, dict):
         uvcl = obj
@@ -84,7 +86,7 @@ def apply(
         uvcl = comut.get_variants(comut.project_univariate(obj, key=ack, df_glue=cidk, df_sorting_criterion_key=tk))
 
     log_refinement = LogRefinement(uvcl)
-    revined_dict, annotations = log_refinement.run(activity_key=ack, timestamp_key=tk)
+    revined_dict, annotations = log_refinement.run(limit=limit)
 
     refined_event_log = _dict_to_event_log(revined_dict)
 

@@ -774,6 +774,7 @@ def discover_enhanced_process_tree(
     activity_key: str = "concept:name",
     timestamp_key: str = "time:timestamp",
     case_id_key: str = "case:concept:name",
+    limit=25,
 ) -> EnhancedProcessTree:
     """
     Discovers an Enhanced Process Tree Event Log Refinement.
@@ -789,6 +790,7 @@ def discover_enhanced_process_tree(
     :param activity_key: Attribute to be used for the activity (default: "concept:name").
     :param timestamp_key: Attribute to be used for the timestamp (default: "time:timestamp").
     :param case_id_key: Attribute to be used as case identifier (default: "case:concept:name").
+    :param limit: Attribute to set the limit of repeated steps.
     :return: An EnhancedProcessTree object.
     :rtype: ``EnhancedProcessTree``
 
@@ -820,6 +822,7 @@ def discover_enhanced_process_tree(
         activity_key=activity_key,
         timestamp_key=timestamp_key,
         case_id_key=case_id_key,
+        limit=limit,
     )
     parameters["noise_threshold"] = noise_threshold
 
