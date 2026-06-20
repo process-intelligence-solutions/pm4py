@@ -62,23 +62,6 @@ class LogRefinement:
                 return False
         return True
 
-    def _is_realistic2(self, new_trace, t1, t2):
-        """
-        Strict Realism Constraint (Local Loop Bounding):
-        Ensures that a synthesized trace does not inflate the frequency
-        of any activity beyond what was natively observed in its parents.
-        """
-        counts_new = Counter(new_trace)
-        counts_t1 = Counter(t1)
-        counts_t2 = Counter(t2)
-
-        for act, count in counts_new.items():
-            # If the merged trace has more occurrences of an activity than EITHER parent,
-            # it is artificially inflating a loop/stutter. Reject it.
-            if count > max(counts_t1.get(act, 0), counts_t2.get(act, 0)):
-                return False
-        return True
-
     def add_annotation(self, activity, property_type):
         if activity not in self.annotations:
             self.annotations[activity] = set()
@@ -91,8 +74,12 @@ class LogRefinement:
 
         untested_traces = set(self.log.keys())
 
+        previous_log_size = len(self.log)
+        stagnation_history = []
+
         while True:
             merged_this_round = False
+            additions_this_round = []
 
             traces = sorted(list(self.log.keys()), key=len, reverse=True)
 
@@ -105,7 +92,7 @@ class LogRefinement:
                 if traces[i] in traces_to_delete:
                     continue
 
-                for j in range(len(traces)):
+                for j in range(i + 1, len(traces)):
                     if i == j or traces[j] in traces_to_delete:
                         continue
 
@@ -140,21 +127,20 @@ class LogRefinement:
                             if "replacements" in result:
                                 for old_trace, new_trace in result["replacements"].items():
 
-                                    # 1. PULL LIVE FREQUENCY (In case the trace already ate something this round)
+                                    added_elements = list((Counter(new_trace) - Counter(old_trace)).elements())
+                                    if added_elements:
+                                        additions_this_round.extend(added_elements)
                                     freq_to_move = new_traces.get(old_trace, self.log.get(old_trace, 0))
 
                                     if new_trace not in new_traces:
                                         new_traces[new_trace] = self.log.get(new_trace, 0)
 
-                                    # 2. TRANSFER MASS
                                     new_traces[new_trace] += freq_to_move
                                     traces_to_delete.add(old_trace)
 
-                                    # 3. KILL THE GHOST: If the destroyed trace was buffered earlier, delete it!
                                     if old_trace in new_traces:
                                         del new_traces[old_trace]
 
-                                    # 4. ALWAYS TEST MODIFIED TRACES: Even if they already exist in the log
                                     traces_to_test_next.add(new_trace)
 
                             merged_this_round = True
@@ -170,8 +156,31 @@ class LogRefinement:
             for t, freq in new_traces.items():
                 self.log[t] = freq
 
-            # The only traces we need to test next round are the ones we just modified
             untested_traces = traces_to_test_next
+
+            current_log_size = len(self.log)
+            round_summary = dict(Counter(additions_this_round))
+            LIMIT = 25
+
+            if current_log_size == previous_log_size:
+                stagnation_history.append(round_summary)
+
+                if len(stagnation_history) >= LIMIT:
+                    last_n = stagnation_history[-LIMIT:]
+                    summaries_identical = all(s == last_n[0] for s in last_n)
+
+                    if summaries_identical and len(last_n[0]) > 0:
+                        print(f"\n[CIRCUIT BREAKER] Stutter Crawl (Runaway Train) Detected!")
+                        print(f"Log size stagnated at {current_log_size} variants for {LIMIT} iterations.")
+                        print(f"Theoretical convergence reached at Iteration {iteration}.")
+                        print("--- Audit Trail of Exhausted Patience ---")
+                        print(f"  -> The engine continuously synthesized {last_n[0]} without achieving consolidation.")
+                        print("-----------------------------------------")
+                        break
+            else:
+                stagnation_history.clear()
+
+            previous_log_size = current_log_size
 
             if not merged_this_round:
                 print(f"Convergence Reached at Iteration {iteration}!")
