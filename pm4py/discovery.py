@@ -23,38 +23,39 @@ __doc__ = """
 The ``pm4py.discovery`` module contains the process discovery algorithms implemented in ``pm4py``.
 """
 
-from typing import Tuple, Union, List, Dict, Any, Optional, Set, TextIO
+import importlib.util
 from collections import Counter
+from typing import Tuple, Union, List, Dict, Any, Optional, Set, TextIO
 
 import pandas as pd
 from pandas import DataFrame
 
-from pm4py.objects.ocel.obj import OCEL
+from pm4py.algo.discovery.enhanced_process_tree.algorithm import Variant as EnhancedTreeVariant
 from pm4py.objects.bpmn.obj import BPMN
 from pm4py.objects.dfg.obj import DFG
-from pm4py.objects.powl.obj import POWL
 from pm4py.objects.heuristics_net.obj import HeuristicsNet
-from pm4py.objects.transition_system.obj import TransitionSystem
-from pm4py.objects.trie.obj import Trie
 from pm4py.objects.log.obj import EventLog
 from pm4py.objects.log.obj import EventStream
+from pm4py.objects.ocel.obj import OCEL
 from pm4py.objects.petri_net.obj import PetriNet, Marking
+from pm4py.objects.powl.obj import POWL
 from pm4py.objects.process_tree.obj import ProcessTree, EnhancedProcessTree
+from pm4py.objects.transition_system.obj import TransitionSystem
+from pm4py.objects.trie.obj import Trie
+from pm4py.util import constants
+from pm4py.util import deprecation
 from pm4py.util.pandas_utils import (
     check_is_pandas_dataframe,
     check_pandas_dataframe_columns,
 )
 from pm4py.utils import get_properties, __event_log_deprecation_warning, is_polars_lazyframe
-from pm4py.util import constants, pandas_utils
-from pm4py.util import deprecation
-import importlib.util
 
 
 def discover_dfg(
-    log: Union[EventLog, pd.DataFrame],
-    activity_key: str = "concept:name",
-    timestamp_key: str = "time:timestamp",
-    case_id_key: str = "case:concept:name",
+        log: Union[EventLog, pd.DataFrame],
+        activity_key: str = "concept:name",
+        timestamp_key: str = "time:timestamp",
+        case_id_key: str = "case:concept:name",
 ) -> Tuple[dict, dict, dict]:
     """
     Discovers a Directly-Follows Graph (DFG) from a log.
@@ -149,10 +150,10 @@ def discover_dfg(
 
 
 def discover_directly_follows_graph(
-    log: Union[EventLog, pd.DataFrame],
-    activity_key: str = "concept:name",
-    timestamp_key: str = "time:timestamp",
-    case_id_key: str = "case:concept:name",
+        log: Union[EventLog, pd.DataFrame],
+        activity_key: str = "concept:name",
+        timestamp_key: str = "time:timestamp",
+        case_id_key: str = "case:concept:name",
 ) -> Tuple[dict, dict, dict]:
     return discover_dfg(
         log,
@@ -163,10 +164,10 @@ def discover_directly_follows_graph(
 
 
 def discover_dfg_typed(
-    log: pd.DataFrame,
-    case_id_key: str = "case:concept:name",
-    activity_key: str = "concept:name",
-    timestamp_key: str = "time:timestamp",
+        log: pd.DataFrame,
+        case_id_key: str = "case:concept:name",
+        activity_key: str = "concept:name",
+        timestamp_key: str = "time:timestamp",
 ) -> DFG:
     """
     Discovers a typed Directly-Follows Graph (DFG) from a log.
@@ -204,14 +205,14 @@ def discover_dfg_typed(
 
 
 def discover_performance_dfg(
-    log: Union[EventLog, pd.DataFrame],
-    business_hours: bool = False,
-    business_hour_slots=constants.DEFAULT_BUSINESS_HOUR_SLOTS,
-    workcalendar=constants.DEFAULT_BUSINESS_HOURS_WORKCALENDAR,
-    activity_key: str = "concept:name",
-    timestamp_key: str = "time:timestamp",
-    case_id_key: str = "case:concept:name",
-    perf_aggregation_key: str = "all",
+        log: Union[EventLog, pd.DataFrame],
+        business_hours: bool = False,
+        business_hour_slots=constants.DEFAULT_BUSINESS_HOUR_SLOTS,
+        workcalendar=constants.DEFAULT_BUSINESS_HOURS_WORKCALENDAR,
+        activity_key: str = "concept:name",
+        timestamp_key: str = "time:timestamp",
+        case_id_key: str = "case:concept:name",
+        perf_aggregation_key: str = "all",
 ) -> Tuple[dict, dict, dict]:
     """
     Discovers a Performance Directly-Follows Graph from an event log.
@@ -333,10 +334,10 @@ def discover_performance_dfg(
 
 
 def discover_petri_net_alpha(
-    log: Union[EventLog, pd.DataFrame],
-    activity_key: str = "concept:name",
-    timestamp_key: str = "time:timestamp",
-    case_id_key: str = "case:concept:name",
+        log: Union[EventLog, pd.DataFrame],
+        activity_key: str = "concept:name",
+        timestamp_key: str = "time:timestamp",
+        case_id_key: str = "case:concept:name",
 ) -> Tuple[PetriNet, Marking, Marking]:
     """
     Discovers a Petri net using the Alpha Miner.
@@ -384,11 +385,11 @@ def discover_petri_net_alpha(
 
 
 def discover_petri_net_ilp(
-    log: Union[EventLog, pd.DataFrame],
-    alpha: float = 1.0,
-    activity_key: str = "concept:name",
-    timestamp_key: str = "time:timestamp",
-    case_id_key: str = "case:concept:name",
+        log: Union[EventLog, pd.DataFrame],
+        alpha: float = 1.0,
+        activity_key: str = "concept:name",
+        timestamp_key: str = "time:timestamp",
+        case_id_key: str = "case:concept:name",
 ) -> Tuple[PetriNet, Marking, Marking]:
     """
     Discovers a Petri net using the ILP Miner.
@@ -438,17 +439,17 @@ def discover_petri_net_ilp(
 
 
 def discover_petri_net_genetic(
-    log: Union[EventLog, pd.DataFrame],
-    population_size: int = 500,
-    elitism_rate: float = 0.01,
-    crossover_rate: float = 1.0,
-    mutation_rate: float = 0.01,
-    generations: int = 100,
-    elitism_min_sample: int = 5,
-    log_csv: TextIO = None,
-    activity_key: str = "concept:name",
-    timestamp_key: str = "time:timestamp",
-    case_id_key: str = "case:concept:name",
+        log: Union[EventLog, pd.DataFrame],
+        population_size: int = 500,
+        elitism_rate: float = 0.01,
+        crossover_rate: float = 1.0,
+        mutation_rate: float = 0.01,
+        generations: int = 100,
+        elitism_min_sample: int = 5,
+        log_csv: TextIO = None,
+        activity_key: str = "concept:name",
+        timestamp_key: str = "time:timestamp",
+        case_id_key: str = "case:concept:name",
 ) -> Tuple[PetriNet, Marking, Marking]:
     """
     Discovers a Petri net using the Genetic Miner.
@@ -521,10 +522,10 @@ def discover_petri_net_genetic(
     details="This method will be removed in a future release.",
 )
 def discover_petri_net_alpha_plus(
-    log: Union[EventLog, pd.DataFrame],
-    activity_key: str = "concept:name",
-    timestamp_key: str = "time:timestamp",
-    case_id_key: str = "case:concept:name",
+        log: Union[EventLog, pd.DataFrame],
+        activity_key: str = "concept:name",
+        timestamp_key: str = "time:timestamp",
+        case_id_key: str = "case:concept:name",
 ) -> Tuple[PetriNet, Marking, Marking]:
     """
     Discovers a Petri net using the Alpha+ algorithm.
@@ -575,13 +576,13 @@ def discover_petri_net_alpha_plus(
 
 
 def discover_petri_net_inductive(
-    log: Union[EventLog, pd.DataFrame, DFG],
-    multi_processing: bool = constants.ENABLE_MULTIPROCESSING_DEFAULT,
-    noise_threshold: float = 0.0,
-    activity_key: str = "concept:name",
-    timestamp_key: str = "time:timestamp",
-    case_id_key: str = "case:concept:name",
-    disable_fallthroughs: bool = False,
+        log: Union[EventLog, pd.DataFrame, DFG],
+        multi_processing: bool = constants.ENABLE_MULTIPROCESSING_DEFAULT,
+        noise_threshold: float = 0.0,
+        activity_key: str = "concept:name",
+        timestamp_key: str = "time:timestamp",
+        case_id_key: str = "case:concept:name",
+        disable_fallthroughs: bool = False,
 ) -> Tuple[PetriNet, Marking, Marking]:
     """
     Discovers a Petri net using the Inductive Miner algorithm.
@@ -635,13 +636,13 @@ def discover_petri_net_inductive(
 
 
 def discover_petri_net_heuristics(
-    log: Union[EventLog, pd.DataFrame],
-    dependency_threshold: float = 0.5,
-    and_threshold: float = 0.65,
-    loop_two_threshold: float = 0.5,
-    activity_key: str = "concept:name",
-    timestamp_key: str = "time:timestamp",
-    case_id_key: str = "case:concept:name",
+        log: Union[EventLog, pd.DataFrame],
+        dependency_threshold: float = 0.5,
+        and_threshold: float = 0.65,
+        loop_two_threshold: float = 0.5,
+        activity_key: str = "concept:name",
+        timestamp_key: str = "time:timestamp",
+        case_id_key: str = "case:concept:name",
 ) -> Tuple[PetriNet, Marking, Marking]:
     """
     Discovers a Petri net using the Heuristics Miner.
@@ -700,13 +701,13 @@ def discover_petri_net_heuristics(
 
 
 def discover_process_tree_inductive(
-    log: Union[EventLog, pd.DataFrame, DFG],
-    noise_threshold: float = 0.0,
-    multi_processing: bool = constants.ENABLE_MULTIPROCESSING_DEFAULT,
-    activity_key: str = "concept:name",
-    timestamp_key: str = "time:timestamp",
-    case_id_key: str = "case:concept:name",
-    disable_fallthroughs: bool = False,
+        log: Union[EventLog, pd.DataFrame, DFG],
+        noise_threshold: float = 0.0,
+        multi_processing: bool = constants.ENABLE_MULTIPROCESSING_DEFAULT,
+        activity_key: str = "concept:name",
+        timestamp_key: str = "time:timestamp",
+        case_id_key: str = "case:concept:name",
+        disable_fallthroughs: bool = False,
 ) -> ProcessTree:
     """
     Discovers a Process Tree using the Inductive Miner algorithm.
@@ -768,43 +769,47 @@ def discover_process_tree_inductive(
 
     return inductive_miner.apply(log, variant=variant, parameters=parameters)
 
+
 def discover_enhanced_process_tree(
-    log: Union[EventLog, pd.DataFrame],
-    noise_threshold: float = 0.0,
-    activity_key: str = "concept:name",
-    timestamp_key: str = "time:timestamp",
-    case_id_key: str = "case:concept:name",
-    limit=25,
+        log: Union[EventLog, pd.DataFrame],
+        variant: EnhancedTreeVariant = EnhancedTreeVariant.REFINEMENT_HYBRID,
+        noise_threshold: float = 0.0,
+        activity_key: str = "concept:name",
+        timestamp_key: str = "time:timestamp",
+        case_id_key: str = "case:concept:name",
+        limit: int = 25,
 ) -> EnhancedProcessTree:
     """
-    Discovers an Enhanced Process Tree Event Log Refinement.
+        Discovers an Enhanced Process Tree utilizing dynamic routing annotations (start, stop, skip).
 
-    The algorithm first compresses fragmented trace variants into master traces by
-    inferring grammatical overlaps (Prefix, Suffix, Infix, Skip). The compressed
-    log is then passed to the Inductive Miner, yielding a highly structured Process Tree.
-    Annotations for dynamic routing (start, stop, skip) are calculated and will be applied
-    to the tree.
+        The algorithm supports three distinct architectural variants:
+        1. REFINEMENT_HYBRID: Utilizes Log Refinement to synthesize a compressed log and
+           simultaneously extracts topological skip contexts. Extremely fast, bypassing alignments.
+        2. ALIGNMENTS: Standard Inductive Miner discovery followed by a post-discovery
+           A* conformance alignment phase to locate invisible tau (routing) deviations.
+        3. REFINED_ALIGNMENTS: A hybrid pipeline that utilizes Log Refinement strictly to build
+           a robust, noise-free base model, but relies on A* alignments for exception discovery.
 
-    :param log: Event log or Pandas DataFrame.
-    :param noise_threshold: Noise threshold applied to the underlying Inductive Miner (default: 0.0).
-    :param activity_key: Attribute to be used for the activity (default: "concept:name").
-    :param timestamp_key: Attribute to be used for the timestamp (default: "time:timestamp").
-    :param case_id_key: Attribute to be used as case identifier (default: "case:concept:name").
-    :param limit: Attribute to set the limit of repeated steps.
-    :return: An EnhancedProcessTree object.
-    :rtype: ``EnhancedProcessTree``
+        :param log: Event log or Pandas DataFrame.
+        :param variant: The architectural pipeline to use (default: EnhancedTreeVariant.REFINEMENT_HYBRID).
+        :param noise_threshold: Noise threshold applied to the underlying Inductive Miner (default: 0.0).
+        :param activity_key: Attribute to be used for the activity (default: "concept:name").
+        :param timestamp_key: Attribute to be used for the timestamp (default: "time:timestamp").
+        :param case_id_key: Attribute to be used as case identifier (default: "case:concept:name").
+        :param limit: Attribute to set the limit of repeated steps in log refinement (default: 25).
+        :return: An EnhancedProcessTree object.
 
-    .. code-block:: python3
+        .. code-block:: python3
 
-        import pm4py
+            import pm4py
+            from pm4py.algo.discovery.enhanced_process_tree.algorithm import Variant
 
-        process_tree = pm4py.discover_enhanced_process_tree(
-            dataframe,
-            activity_key='concept:name',
-            case_id_key='case:concept:name',
-            timestamp_key='time:timestamp'
-        )
-    """
+            # Example: Using the fast Log Refinement hybrid pipeline
+            process_tree = pm4py.discover_enhanced_process_tree(
+                dataframe,
+                variant=Variant.REFINEMENT_HYBRID
+            )
+        """
     __event_log_deprecation_warning(log)
 
     if check_is_pandas_dataframe(log):
@@ -815,31 +820,32 @@ def discover_enhanced_process_tree(
             case_id_key=case_id_key,
         )
 
-    from pm4py.algo.discovery.log_refinement import algorithm as log_refinement_discovery
+    from pm4py.algo.discovery.enhanced_process_tree import algorithm as enhanced_tree_discovery
 
     parameters = get_properties(
         log,
         activity_key=activity_key,
         timestamp_key=timestamp_key,
         case_id_key=case_id_key,
-        limit=limit,
     )
-    parameters["noise_threshold"] = noise_threshold
 
-    return log_refinement_discovery.apply(log, parameters=parameters)
+    parameters[enhanced_tree_discovery.Parameters.NOISE_THRESHOLD] = noise_threshold
+    parameters[enhanced_tree_discovery.Parameters.LIMIT] = limit
+
+    return enhanced_tree_discovery.apply(log, variant=variant, parameters=parameters)
 
 
 def discover_heuristics_net(
-    log: Union[EventLog, pd.DataFrame],
-    dependency_threshold: float = 0.5,
-    and_threshold: float = 0.65,
-    loop_two_threshold: float = 0.5,
-    min_act_count: int = 1,
-    min_dfg_occurrences: int = 1,
-    activity_key: str = "concept:name",
-    timestamp_key: str = "time:timestamp",
-    case_id_key: str = "case:concept:name",
-    decoration: str = "frequency",
+        log: Union[EventLog, pd.DataFrame],
+        dependency_threshold: float = 0.5,
+        and_threshold: float = 0.65,
+        loop_two_threshold: float = 0.5,
+        min_act_count: int = 1,
+        min_dfg_occurrences: int = 1,
+        activity_key: str = "concept:name",
+        timestamp_key: str = "time:timestamp",
+        case_id_key: str = "case:concept:name",
+        decoration: str = "frequency",
 ) -> HeuristicsNet:
     """
     Discovers a Heuristics Net.
@@ -904,10 +910,10 @@ def discover_heuristics_net(
 
 
 def derive_minimum_self_distance(
-    log: Union[DataFrame, EventLog, EventStream],
-    activity_key: str = "concept:name",
-    timestamp_key: str = "time:timestamp",
-    case_id_key: str = "case:concept:name",
+        log: Union[DataFrame, EventLog, EventStream],
+        activity_key: str = "concept:name",
+        timestamp_key: str = "time:timestamp",
+        case_id_key: str = "case:concept:name",
 ) -> Dict[str, int]:
     """
     Computes the minimum self-distance for each activity observed in an event log.
@@ -959,7 +965,7 @@ def derive_minimum_self_distance(
 
 
 def discover_footprints(
-    *args: Union[EventLog, Tuple[PetriNet, Marking, Marking], ProcessTree, POWL]
+        *args: Union[EventLog, Tuple[PetriNet, Marking, Marking], ProcessTree, POWL]
 ) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
     """
     Discovers the footprints from the provided event log or process model.
@@ -987,10 +993,10 @@ def discover_footprints(
 
 
 def discover_eventually_follows_graph(
-    log: Union[EventLog, pd.DataFrame],
-    activity_key: str = "concept:name",
-    timestamp_key: str = "time:timestamp",
-    case_id_key: str = "case:concept:name",
+        log: Union[EventLog, pd.DataFrame],
+        activity_key: str = "concept:name",
+        timestamp_key: str = "time:timestamp",
+        case_id_key: str = "case:concept:name",
 ) -> Dict[Tuple[str, str], int]:
     """
     Generates the Eventually-Follows Graph from a log.
@@ -1045,13 +1051,13 @@ def discover_eventually_follows_graph(
 
 
 def discover_bpmn_inductive(
-    log: Union[EventLog, pd.DataFrame, DFG],
-    noise_threshold: float = 0.0,
-    multi_processing: bool = constants.ENABLE_MULTIPROCESSING_DEFAULT,
-    activity_key: str = "concept:name",
-    timestamp_key: str = "time:timestamp",
-    case_id_key: str = "case:concept:name",
-    disable_fallthroughs: bool = False,
+        log: Union[EventLog, pd.DataFrame, DFG],
+        noise_threshold: float = 0.0,
+        multi_processing: bool = constants.ENABLE_MULTIPROCESSING_DEFAULT,
+        activity_key: str = "concept:name",
+        timestamp_key: str = "time:timestamp",
+        case_id_key: str = "case:concept:name",
+        disable_fallthroughs: bool = False,
 ) -> BPMN:
     """
     Discovers a BPMN model using the Inductive Miner algorithm.
@@ -1105,13 +1111,13 @@ def discover_bpmn_inductive(
 
 
 def discover_transition_system(
-    log: Union[EventLog, pd.DataFrame],
-    direction: str = "forward",
-    window: int = 2,
-    view: str = "sequence",
-    activity_key: str = "concept:name",
-    timestamp_key: str = "time:timestamp",
-    case_id_key: str = "case:concept:name",
+        log: Union[EventLog, pd.DataFrame],
+        direction: str = "forward",
+        window: int = 2,
+        view: str = "sequence",
+        activity_key: str = "concept:name",
+        timestamp_key: str = "time:timestamp",
+        case_id_key: str = "case:concept:name",
 ) -> TransitionSystem:
     """
     Discovers a Transition System from a log.
@@ -1167,11 +1173,11 @@ def discover_transition_system(
 
 
 def discover_prefix_tree(
-    log: Union[EventLog, pd.DataFrame],
-    max_path_length: Optional[int] = None,
-    activity_key: str = "concept:name",
-    timestamp_key: str = "time:timestamp",
-    case_id_key: str = "case:concept:name",
+        log: Union[EventLog, pd.DataFrame],
+        max_path_length: Optional[int] = None,
+        activity_key: str = "concept:name",
+        timestamp_key: str = "time:timestamp",
+        case_id_key: str = "case:concept:name",
 ) -> Trie:
     """
     Discovers a Prefix Tree from the provided log.
@@ -1224,10 +1230,10 @@ def discover_prefix_tree(
 
 
 def discover_temporal_profile(
-    log: Union[EventLog, pd.DataFrame],
-    activity_key: str = "concept:name",
-    timestamp_key: str = "time:timestamp",
-    case_id_key: str = "case:concept:name",
+        log: Union[EventLog, pd.DataFrame],
+        activity_key: str = "concept:name",
+        timestamp_key: str = "time:timestamp",
+        case_id_key: str = "case:concept:name",
 ) -> Dict[Tuple[str, str], Tuple[float, float]]:
     """
     Discovers a Temporal Profile from a log.
@@ -1296,11 +1302,11 @@ def discover_temporal_profile(
 
 
 def discover_log_skeleton(
-    log: Union[EventLog, pd.DataFrame],
-    noise_threshold: float = 0.0,
-    activity_key: str = "concept:name",
-    timestamp_key: str = "time:timestamp",
-    case_id_key: str = "case:concept:name",
+        log: Union[EventLog, pd.DataFrame],
+        noise_threshold: float = 0.0,
+        activity_key: str = "concept:name",
+        timestamp_key: str = "time:timestamp",
+        case_id_key: str = "case:concept:name",
 ) -> Dict[str, Any]:
     """
     Discovers a Log Skeleton from an event log.
@@ -1362,14 +1368,14 @@ def discover_log_skeleton(
 
 
 def discover_declare(
-    log: Union[EventLog, pd.DataFrame],
-    allowed_templates: Optional[Set[str]] = None,
-    considered_activities: Optional[Set[str]] = None,
-    min_support_ratio: Optional[float] = None,
-    min_confidence_ratio: Optional[float] = None,
-    activity_key: str = "concept:name",
-    timestamp_key: str = "time:timestamp",
-    case_id_key: str = "case:concept:name",
+        log: Union[EventLog, pd.DataFrame],
+        allowed_templates: Optional[Set[str]] = None,
+        considered_activities: Optional[Set[str]] = None,
+        min_support_ratio: Optional[float] = None,
+        min_confidence_ratio: Optional[float] = None,
+        activity_key: str = "concept:name",
+        timestamp_key: str = "time:timestamp",
+        case_id_key: str = "case:concept:name",
 ) -> Dict[str, Dict[Any, Dict[str, int]]]:
     """
     Discovers a DECLARE model from an event log.
@@ -1421,13 +1427,13 @@ def discover_declare(
 
 
 def discover_powl(
-    log: Union[EventLog, pd.DataFrame],
-    variant=None,
-    filtering_weight_factor: float = 0.0,
-    order_graph_filtering_threshold: float = None,
-    activity_key: str = "concept:name",
-    timestamp_key: str = "time:timestamp",
-    case_id_key: str = "case:concept:name",
+        log: Union[EventLog, pd.DataFrame],
+        variant=None,
+        filtering_weight_factor: float = 0.0,
+        order_graph_filtering_threshold: float = None,
+        activity_key: str = "concept:name",
+        timestamp_key: str = "time:timestamp",
+        case_id_key: str = "case:concept:name",
 ) -> POWL:
     """
     Discovers a POWL (Partially Ordered Workflow Language) model from an event log.
@@ -1474,8 +1480,8 @@ def discover_powl(
             case_id_key=case_id_key,
         )
 
-    #import pm4py
-    #log = pm4py.convert_to_event_log(log, case_id_key=case_id_key)
+    # import pm4py
+    # log = pm4py.convert_to_event_log(log, case_id_key=case_id_key)
     properties = get_properties(log, activity_key=activity_key, timestamp_key=timestamp_key)
 
     if order_graph_filtering_threshold is not None:
@@ -1494,13 +1500,13 @@ def discover_powl(
 
 
 def discover_batches(
-    log: Union[EventLog, pd.DataFrame],
-    merge_distance: int = 15 * 60,
-    min_batch_size: int = 2,
-    activity_key: str = "concept:name",
-    timestamp_key: str = "time:timestamp",
-    case_id_key: str = "case:concept:name",
-    resource_key: str = "org:resource",
+        log: Union[EventLog, pd.DataFrame],
+        merge_distance: int = 15 * 60,
+        min_batch_size: int = 2,
+        activity_key: str = "concept:name",
+        timestamp_key: str = "time:timestamp",
+        case_id_key: str = "case:concept:name",
+        resource_key: str = "org:resource",
 ) -> List[Tuple[Tuple[str, str], int, Dict[str, Any]]]:
     """
     Discovers batches from the provided log.
@@ -1569,10 +1575,10 @@ def discover_batches(
 
 
 def correlation_miner(
-    df: pd.DataFrame,
-    annotation: str = "frequency",
-    activity_key: str = "concept:name",
-    timestamp_key: str = "time:timestamp",
+        df: pd.DataFrame,
+        annotation: str = "frequency",
+        activity_key: str = "concept:name",
+        timestamp_key: str = "time:timestamp",
 ) -> Tuple[dict, dict, dict]:
     """
     Applies the Correlation Miner to 'discover' the frequency/performance DFG from an event log without case ID.
@@ -1662,9 +1668,9 @@ def correlation_miner(
 
 
 def discover_otg(
-    ocel: OCEL,
-    variant=None,
-    parameters: Optional[Dict[Any, Any]] = None,
+        ocel: OCEL,
+        variant=None,
+        parameters: Optional[Dict[Any, Any]] = None,
 ) -> Tuple[Set[str], Dict[Tuple[str, str, str], int]]:
     """
     Discovers an Object-Type Graph (OTG) from an object-centric event log.
@@ -1704,9 +1710,9 @@ def discover_otg(
 
 
 def discover_etot(
-    ocel: OCEL,
-    variant=None,
-    parameters: Optional[Dict[Any, Any]] = None,
+        ocel: OCEL,
+        variant=None,
+        parameters: Optional[Dict[Any, Any]] = None,
 ) -> Tuple[
     Set[str],
     Set[str],
