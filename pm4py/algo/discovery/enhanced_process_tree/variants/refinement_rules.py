@@ -19,6 +19,7 @@ visit <https://www.gnu.org/licenses/>.
 Website: https://processintelligence.solutions
 Contact: info@processintelligence.solutions
 '''
+from collections import Counter
 
 
 def rule_prefix(t1, t2):
@@ -208,35 +209,73 @@ def rule_skip(t1, t2):
     while s < len(t_short) - p and t_short[-(s + 1)] == t_long[-(s + 1)]:
         s += 1
 
-    # A SKIP must have both a shared start and a shared end.
     if p == 0 or s == 0:
         return None
 
     m_short = t_short[p: len(t_short) - s]
     m_long = t_long[p: len(t_long) - s]
 
-    # Scenario A: The short trace perfectly matches the prefix, then skips EVERYTHING else.
-    # Example: t_short = <s, a, b, e>, t_long = <s, a, b, c, d, e>
+    skipped_activities = list((Counter(m_long) - Counter(m_short)).elements())
+
     if len(m_short) == 0:
-        # The trigger node is the very last activity in the prefix
         trigger_node = t_short[p - 1]
-
         return {
             "replacements": {t_short: t_long},
-            "annotations": {trigger_node: ["skip"]}
+            "skip_data": [{
+                "trigger_label": trigger_node,
+                "skipped_labels": skipped_activities
+            }]
         }
 
-    # Scenario B: The short trace executes a scattered subset of an AND block.
-    # Example: t_short = <s, c, d, e>, t_long = <s, a, b, c, d, f, g, e>
-    # m_short = <c, d>. m_long = <a, b, c, d, f, g>
-    # Since {c, d} is a subset of {a,b,c,d,f,g}, we trigger the rule!
     if set(m_short).issubset(set(m_long)):
-        # The trigger node is the last activity executed in the middle section
-        trigger_node = m_short[-1]
+        is_ordered = True
+        last_idx = -1
+        for item in m_short:
+            try:
+                idx = m_long.index(item, last_idx + 1)
+                last_idx = idx
+            except ValueError:
+                is_ordered = False
+                break
 
-        return {
-            "replacements": {t_short: t_long},
-            "annotations": {trigger_node: ["skip"]}
-        }
+        if is_ordered:
+            multiple_skips = []
+            short_idx = 0
+            current_trigger = t_short[p - 1]
+            current_skip_group = []
+
+            for item in m_long:
+                if short_idx < len(m_short) and item == m_short[short_idx]:
+                    if current_skip_group:
+                        multiple_skips.append({
+                            "trigger_label": current_trigger,
+                            "skipped_labels": current_skip_group
+                        })
+                        current_skip_group = []
+                    current_trigger = item
+                    short_idx += 1
+                else:
+                    current_skip_group.append(item)
+
+            if current_skip_group:
+                multiple_skips.append({
+                    "trigger_label": current_trigger,
+                    "skipped_labels": current_skip_group
+                })
+
+            return {
+                "replacements": {t_short: t_long},
+                "skip_data": multiple_skips
+            }
+
+        else:
+            trigger_node = m_short[-1]
+            return {
+                "replacements": {t_short: t_long},
+                "skip_data": [{
+                    "trigger_label": trigger_node,
+                    "skipped_labels": skipped_activities
+                }]
+            }
 
     return None

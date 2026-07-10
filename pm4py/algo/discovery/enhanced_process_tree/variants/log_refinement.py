@@ -21,7 +21,7 @@ Contact: info@processintelligence.solutions
 '''
 from collections import Counter
 
-from pm4py.algo.discovery.log_refinement.refinement_rules import (
+from pm4py.algo.discovery.enhanced_process_tree.variants.refinement_rules import (
     rule_prefix, rule_suffix, rule_infix, rule_concatenation,
     rule_completion_stop, rule_completion_start, rule_skip
 )
@@ -31,6 +31,7 @@ class LogRefinement:
     def __init__(self, tuple_log):
         self.log = tuple_log
         self.annotations = {}
+        self.skip_records = []
 
         self.active_rules = [
             # REDUCTIVE RULES (Safe for Loopy Logs)
@@ -73,7 +74,6 @@ class LogRefinement:
         print(f"Initial Log Size: {len(self.log)} unique variants")
 
         untested_traces = set(self.log.keys())
-
         previous_log_size = len(self.log)
         stagnation_history = []
 
@@ -82,10 +82,8 @@ class LogRefinement:
             additions_this_round = []
 
             traces = sorted(list(self.log.keys()), key=len, reverse=True)
-
             traces_to_delete = set()
             new_traces = {}
-
             traces_to_test_next = set()
 
             for i in range(len(traces)):
@@ -93,7 +91,7 @@ class LogRefinement:
                     continue
 
                 for j in range(i + 1, len(traces)):
-                    if i == j or traces[j] in traces_to_delete:
+                    if i == j: # or traces[j] in traces_to_delete:
                         continue
 
                     t1, t2 = traces[i], traces[j]
@@ -143,6 +141,9 @@ class LogRefinement:
 
                                     traces_to_test_next.add(new_trace)
 
+                            if "skip_data" in result:
+                                self.skip_records.extend(result["skip_data"])
+
                             merged_this_round = True
                             break
 
@@ -157,7 +158,6 @@ class LogRefinement:
                 self.log[t] = freq
 
             untested_traces = traces_to_test_next
-
             current_log_size = len(self.log)
             round_summary = dict(Counter(additions_this_round))
 
@@ -190,4 +190,4 @@ class LogRefinement:
             iteration += 1
 
         print(f"Final Log Size: {len(self.log)} unique variants")
-        return self.log, self.annotations
+        return self.log, self.annotations, self.skip_records

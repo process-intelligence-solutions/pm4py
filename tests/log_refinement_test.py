@@ -1,6 +1,7 @@
 import unittest
 
-from pm4py.algo.discovery.log_refinement.log_refinement import LogRefinement
+from pm4py.algo.discovery.enhanced_process_tree.variants.log_refinement import LogRefinement
+from pm4py.algo.discovery.enhanced_process_tree.variants.refinement_rules import rule_skip
 
 
 class LogRefinementTest(unittest.TestCase):
@@ -13,7 +14,7 @@ class LogRefinementTest(unittest.TestCase):
         """Tests that a prefix is absorbed and annotates a stop point."""
         log = self._convert_to_tuple_log([['a', 'b'], ['a', 'b', 'c', 'd']])
         log_refinement = LogRefinement(log)
-        final_log, annotations = log_refinement.run()
+        final_log, annotations, _ = log_refinement.run()
 
         self.assertEqual(set(final_log.keys()), {('a', 'b', 'c', 'd')})
         self.assertIn('stop', annotations.get('b', set()))
@@ -23,7 +24,7 @@ class LogRefinementTest(unittest.TestCase):
         """Tests that a suffix is absorbed and annotates a start point."""
         log = self._convert_to_tuple_log([['c', 'd'], ['a', 'b', 'c', 'd']])
         log_refinement = LogRefinement(log)
-        final_log, annotations = log_refinement.run()
+        final_log, annotations, _ = log_refinement.run()
 
         self.assertEqual(set(final_log.keys()), {('a', 'b', 'c', 'd')})
         self.assertIn('start', annotations.get('c', set()))
@@ -32,7 +33,7 @@ class LogRefinementTest(unittest.TestCase):
         """Tests that an infix is absorbed and annotates both start and stop."""
         log = self._convert_to_tuple_log([['b', 'c'], ['a', 'b', 'c', 'd']])
         log_refinement = LogRefinement(log)
-        final_log, annotations = log_refinement.run()
+        final_log, annotations, _ = log_refinement.run()
 
         self.assertEqual(set(final_log.keys()), {('a', 'b', 'c', 'd')})
         self.assertIn('start', annotations.get('b', set()))
@@ -42,7 +43,7 @@ class LogRefinementTest(unittest.TestCase):
         """Tests fusing two traces with an edge-anchored overlap."""
         log = self._convert_to_tuple_log([['a', 'b', 'c', 'd'], ['d', 'e', 'f']])
         log_refinement = LogRefinement(log)
-        final_log, annotations = log_refinement.run()
+        final_log, annotations, _ = log_refinement.run()
 
         self.assertEqual(set(final_log.keys()), {('a', 'b', 'c', 'd', 'e', 'f')})
         self.assertIn('stop', annotations.get('d', set()))
@@ -52,7 +53,7 @@ class LogRefinementTest(unittest.TestCase):
         """Tests fusing two traces with an edge-anchored overlap."""
         log = self._convert_to_tuple_log([['a', 'b', 'c', 'd'], ['x', 'b', 'c']])
         log_refinement = LogRefinement(log)
-        final_log, annotations = log_refinement.run()
+        final_log, annotations, _ = log_refinement.run()
 
         self.assertEqual(set(final_log.keys()), {('a', 'b', 'c', 'd'), ('x', 'b', 'c', 'd')})
         self.assertIn('stop', annotations.get('c', set()))
@@ -61,7 +62,7 @@ class LogRefinementTest(unittest.TestCase):
         """Tests completing a trace that ended prematurely but shares an internal pivot."""
         log = self._convert_to_tuple_log([['a', 'b', 'd'], ['x', 'y', 'd', 'e', 'f']])
         log_refinement = LogRefinement(log)
-        final_log, annotations = log_refinement.run()
+        final_log, annotations, _ = log_refinement.run()
 
         expected_traces = {('a', 'b', 'd', 'e', 'f'), ('x', 'y', 'd', 'e', 'f')}
         self.assertEqual(set(final_log.keys()), expected_traces)
@@ -75,7 +76,7 @@ class LogRefinementTest(unittest.TestCase):
         ]
         log = self._convert_to_tuple_log(raw_traces)
         log_refinement = LogRefinement(log)
-        final_log, annotations = log_refinement.run()
+        final_log, annotations, _ = log_refinement.run()
 
         self.assertEqual(set(final_log.keys()), {('s', 'a', 'b', 'c', 'd', 'f', 'g', 'e')})
         self.assertIn('skip', annotations.get('d', set()))
@@ -94,7 +95,7 @@ class LogRefinementTest(unittest.TestCase):
         ]
         log = self._convert_to_tuple_log(raw_traces)
         log_refinement = LogRefinement(log)
-        final_log, annotations = log_refinement.run()
+        final_log, annotations, _ = log_refinement.run()
 
         expected_traces = {('x', 'y', 'd', 'e', 'f'), ('a', 'b', 'd', 'e', 'f')}
         self.assertEqual(set(final_log.keys()), expected_traces)
