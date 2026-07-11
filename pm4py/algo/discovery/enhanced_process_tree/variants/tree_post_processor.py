@@ -1,4 +1,6 @@
 from enum import Enum
+
+from pm4py.algo.discovery.enhanced_process_tree.variants.base_tree_processor import BaseTreeProcessor
 from pm4py.util import exec_utils
 from pm4py.algo.conformance.alignments.process_tree import algorithm as pt_alignments
 from pm4py.objects.process_tree.obj import Operator, EnhancedProcessTree
@@ -8,16 +10,15 @@ class Parameters(Enum):
     THRESHOLD = "threshold"
 
 
-class TreePostProcessor:
+class TreePostProcessor(BaseTreeProcessor):
     """
-    Internal class to handle the structural modification of Process Trees
-    based on alignment data. Uses the Order-Preservation Heuristic to group
-    alignment tau moves, mirroring the logic of the Hybrid approach.
+    Structural modification of Process Trees based on A* alignment data.
+    Uses the Order-Preservation Heuristic and Global Tau Cleanup.
     """
 
     def __init__(self, parameters=None):
+        super().__init__(parameters)
         self.min_occurrences = 0
-        self.parameters = parameters if parameters is not None else {}
         self.threshold = exec_utils.get_param_value(Parameters.THRESHOLD, self.parameters, 0.05)
 
     def apply(self, log, process_tree):
@@ -81,37 +82,6 @@ class TreePostProcessor:
             enhanced_node.children.append(enhanced_child)
 
         return enhanced_node
-
-    def _get_depth(self, node):
-        depth = 0
-        curr = node
-        while curr.parent is not None:
-            depth += 1
-            curr = curr.parent
-        return depth
-
-    def _get_lca(self, node_a, node_b):
-        if node_a is None or node_b is None:
-            return None
-
-        ancestors_a = []
-        curr = node_a
-        while curr is not None:
-            ancestors_a.append(curr)
-            curr = curr.parent
-
-        curr = node_b
-        while curr is not None:
-            if curr in ancestors_a:
-                return curr
-            curr = curr.parent
-        return None
-
-    def _get_direct_child_branch(self, lca_node, descendant_node):
-        curr = descendant_node
-        while curr is not None and getattr(curr, 'parent', None) != lca_node:
-            curr = curr.parent
-        return curr
 
     def _parse_alignment_trace(self, alignment_dict):
         """
@@ -277,38 +247,39 @@ class TreePostProcessor:
                 if b_trig is None or not b_skips:
                     continue
 
-                if lca.operator in [Operator.PARALLEL, Operator.XOR]:
-                    b_trig.skip = True
-
-                elif lca.operator == Operator.SEQUENCE:
-                    if b_trig in b_skips:
-                        b_trig.skip = True
-                    else:
-                        try:
-                            idx_trig = lca.children.index(b_trig)
-                            indices_skip = [lca.children.index(bs) for bs in b_skips]
-
-                            all_indices = [idx_trig] + indices_skip
-                            min_idx = min(all_indices)
-                            max_idx = max(all_indices)
-
-                            nodes_to_encapsulate = lca.children[min_idx: max_idx + 1]
-
-                            if len(nodes_to_encapsulate) == len(lca.children) or getattr(b_trig, '_is_wrapper', False):
-                                b_trig.skip = True
-                            else:
-                                new_seq = EnhancedProcessTree(operator=Operator.SEQUENCE, parent=lca)
-                                new_seq._is_wrapper = True  # Tag the sequence so it cannot be swallowed again
-
-                                for node in nodes_to_encapsulate:
-                                    lca.children.remove(node)
-                                    new_seq.children.append(node)
-                                    node.parent = new_seq
-
-                                b_trig.skip = True
-                                lca.children.insert(min_idx, new_seq)
-                        except ValueError:
-                            continue
+                self._apply_structural_encapsulation(lca, b_trig, b_skips)
+                # if lca.operator in [Operator.PARALLEL, Operator.XOR]:
+                #     b_trig.skip = True
+                #
+                # elif lca.operator == Operator.SEQUENCE:
+                #     if b_trig in b_skips:
+                #         b_trig.skip = True
+                #     else:
+                #         try:
+                #             idx_trig = lca.children.index(b_trig)
+                #             indices_skip = [lca.children.index(bs) for bs in b_skips]
+                #
+                #             all_indices = [idx_trig] + indices_skip
+                #             min_idx = min(all_indices)
+                #             max_idx = max(all_indices)
+                #
+                #             nodes_to_encapsulate = lca.children[min_idx: max_idx + 1]
+                #
+                #             if len(nodes_to_encapsulate) == len(lca.children) or getattr(b_trig, '_is_wrapper', False):
+                #                 b_trig.skip = True
+                #             else:
+                #                 new_seq = EnhancedProcessTree(operator=Operator.SEQUENCE, parent=lca)
+                #                 new_seq._is_wrapper = True  # Tag the sequence so it cannot be swallowed again
+                #
+                #                 for node in nodes_to_encapsulate:
+                #                     lca.children.remove(node)
+                #                     new_seq.children.append(node)
+                #                     node.parent = new_seq
+                #
+                #                 b_trig.skip = True
+                #                 lca.children.insert(min_idx, new_seq)
+                #         except ValueError:
+                #             continue
 
         for t_node in all_taus_dict.values():
 
@@ -340,7 +311,3 @@ class TreePostProcessor:
                         single_child.parent = bb_parent
                     except ValueError:
                         pass
-
-def apply(log, process_tree, parameters=None):
-    processor = TreePostProcessor(parameters=parameters)
-    return processor.apply(log, process_tree)
