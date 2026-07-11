@@ -67,6 +67,41 @@ class BaseTreeProcessor:
                 except ValueError:
                     pass
 
+    def _cleanup_taus(self, taus_to_delete):
+        """
+        Global Tau Cleanup Phase.
+        Executes structurally safe deletion of tau nodes and collapses wrappers.
+        """
+        for t_node in taus_to_delete:
+            if getattr(t_node, 'label', None) is not None:
+                continue
+
+            bypassed_block = getattr(t_node, 'parent', None)
+
+            if not bypassed_block or bypassed_block.operator == Operator.LOOP:
+                continue
+
+            if t_node in bypassed_block.children:
+                bypassed_block.children.remove(t_node)
+
+            if len(bypassed_block.children) == 1:
+                single_child = bypassed_block.children[0]
+                bb_parent = bypassed_block.parent
+                if bb_parent is not None:
+                    try:
+                        if getattr(bypassed_block, 'skip', False):
+                            single_child.skip = True
+                        if getattr(bypassed_block, 'start', False):
+                            single_child.start = True
+                        if getattr(bypassed_block, 'stop', False):
+                            single_child.stop = True
+
+                        bb_idx = bb_parent.children.index(bypassed_block)
+                        bb_parent.children[bb_idx] = single_child
+                        single_child.parent = bb_parent
+                    except ValueError:
+                        pass
+
     def _find_node_by_label(self, tree, label):
         if tree.label == label:
             return tree

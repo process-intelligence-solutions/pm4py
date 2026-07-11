@@ -43,6 +43,8 @@ class Parameters(Enum):
     CASE_ID_KEY = constants.PARAMETER_CONSTANT_CASEID_KEY
     LIMIT = "limit"
     NOISE_THRESHOLD = "noise_threshold"
+    ALIGNMENT_THRESHOLD = "alignment_threshold"
+    TAU_DELETION_THRESHOLD = "tau_deletion_threshold"
 
 
 class Variant(Enum):

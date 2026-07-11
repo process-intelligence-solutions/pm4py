@@ -778,6 +778,8 @@ def discover_enhanced_process_tree(
         timestamp_key: str = "time:timestamp",
         case_id_key: str = "case:concept:name",
         limit: int = 25,
+        alignment_threshold: float = 0.05,
+        tau_deletion_threshold: float = 1.0
 ) -> EnhancedProcessTree:
     """
         Discovers an Enhanced Process Tree utilizing dynamic routing annotations (start, stop, skip).
@@ -787,8 +789,6 @@ def discover_enhanced_process_tree(
            simultaneously extracts topological skip contexts. Extremely fast, bypassing alignments.
         2. ALIGNMENTS: Standard Inductive Miner discovery followed by a post-discovery
            A* conformance alignment phase to locate invisible tau (routing) deviations.
-        3. REFINED_ALIGNMENTS: A hybrid pipeline that utilizes Log Refinement strictly to build
-           a robust, noise-free base model, but relies on A* alignments for exception discovery.
 
         :param log: Event log or Pandas DataFrame.
         :param variant: The architectural pipeline to use (default: EnhancedTreeVariant.REFINEMENT_HYBRID).
@@ -831,6 +831,8 @@ def discover_enhanced_process_tree(
 
     parameters[enhanced_tree_discovery.Parameters.NOISE_THRESHOLD] = noise_threshold
     parameters[enhanced_tree_discovery.Parameters.LIMIT] = limit
+    parameters[enhanced_tree_discovery.Parameters.ALIGNMENT_THRESHOLD] = alignment_threshold
+    parameters[enhanced_tree_discovery.Parameters.TAU_DELETION_THRESHOLD] = tau_deletion_threshold
 
     return enhanced_tree_discovery.apply(log, variant=variant, parameters=parameters)
 
