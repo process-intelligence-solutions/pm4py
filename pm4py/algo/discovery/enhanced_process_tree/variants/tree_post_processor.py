@@ -24,13 +24,10 @@ class TreePostProcessor:
         total_traces = len(log)
         self.min_occurrences = total_traces * self.threshold
 
-        # 1. Ensure we are working with an EnhancedProcessTree
         enhanced_tree = self._convert_to_enhanced(process_tree)
 
-        # 2. Run Alignments
         alignments = pt_alignments.apply(log, enhanced_tree, parameters=self.parameters)
 
-        # 3. Aggregate Candidates
         start_counts = {}
         stop_counts = {}
         skip_list = []
@@ -45,7 +42,6 @@ class TreePostProcessor:
 
             skip_list.extend(skips)
 
-        # 4. Apply Start and Stop based on threshold
         for node, count in start_counts.items():
             if count >= self.min_occurrences:
                 node.start = True
@@ -54,11 +50,9 @@ class TreePostProcessor:
             if count >= self.min_occurrences:
                 node.stop = True
 
-        # 5. Filter valid skips using ID mapping to bypass PM4Py hashing
         skip_counts = {}
         for skip in skip_list:
             trigger_id = id(skip['trigger'])
-            # We now hash by the tuple of all skipped nodes in the group
             skipped_ids = tuple(id(n) for n in skip['skipped_nodes'])
             key = (trigger_id, skipped_ids)
 
@@ -68,7 +62,6 @@ class TreePostProcessor:
 
         valid_skips = [v['data'] for v in skip_counts.values() if v['count'] >= self.min_occurrences]
 
-        # 6. Apply Skip Rules
         self._apply_skip_rules(enhanced_tree, valid_skips)
 
         return enhanced_tree
@@ -130,9 +123,6 @@ class TreePostProcessor:
 
         for log_move, model_move in trace_alignment:
             if model_move != '>>' and model_move is not None:
-                # --- THE FIX: Structural Loop Tau Filter ---
-                # We must NOT treat mandatory loop routing as "skipped" activities.
-                # If we do, they force the LCA to the top of the loop and break the sequence rules!
                 if getattr(model_move, 'label', None) is None:
                     parent = getattr(model_move, 'parent', None)
                     if parent and parent.operator == Operator.LOOP:
@@ -150,7 +140,6 @@ class TreePostProcessor:
         if not model_sequence:
             return None, None, []
 
-        # Find Start/Stop Candidates exactly like before
         leading_count = 0
         for move in model_sequence:
             if move['is_model_only']:
@@ -175,7 +164,6 @@ class TreePostProcessor:
 
         internal_end_idx = len(model_sequence) - trailing_count
 
-        # 1. Extract the physical nodes into m_long and m_short
         m_long = []
         m_short = []
         for i in range(leading_count, internal_end_idx):
@@ -187,7 +175,6 @@ class TreePostProcessor:
         if not m_short or len(m_short) == len(m_long):
             return start_candidate, stop_candidate, []
 
-        # 2. Order Validation Heuristic (The Hybrid Logic!)
         is_ordered = True
         last_idx = -1
         for item in m_short:
@@ -199,9 +186,7 @@ class TreePostProcessor:
                 break
 
         if is_ordered:
-            # Linear Bypasses: Split gaps and assign to immediate predecessor
             short_idx = 0
-            # Initialize with start candidate if execution begins with a gap
             current_trigger = start_candidate if leading_count > 0 else None
             current_skip_group = []
 
@@ -224,7 +209,6 @@ class TreePostProcessor:
                     'skipped_nodes': current_skip_group
                 })
         else:
-            # Concurrent Interleaving: Group the entire bypass block
             trigger_node = m_short[-1]
             skipped_nodes = [n for n in m_long if n not in m_short]
             if skipped_nodes:
@@ -235,194 +219,9 @@ class TreePostProcessor:
 
         return start_candidate, stop_candidate, skip_groups
 
-    # def _apply_skip_rules(self, tree, skip_candidates):
-    #     """
-    #     Executes structural rules using the exact cascading logic
-    #     from the Hybrid architecture, updated to handle physical tau nodes.
-    #     """
-    #     for skip_data in skip_candidates:
-    #         trigger_node = skip_data['trigger']
-    #         target_nodes = skip_data['skipped_nodes']
-    #
-    #         if trigger_node is None or not target_nodes:
-    #             continue
-    #
-    #         # 1. Group target nodes by their specific LCA with the trigger
-    #         lca_groups = {}
-    #         for t_node in target_nodes:
-    #             lca = self._get_lca(trigger_node, t_node)
-    #             if lca is not None:
-    #                 lca_id = id(lca)
-    #                 if lca_id not in lca_groups:
-    #                     lca_groups[lca_id] = {'lca_node': lca, 'targets': []}
-    #                 lca_groups[lca_id]['targets'].append(t_node)
-    #
-    #         # 2. Sort LCAs by depth to ensure bottom-up cascading resolution
-    #         sorted_groups = sorted(
-    #             lca_groups.values(),
-    #             key=lambda group: self._get_depth(group['lca_node']),
-    #             reverse=True
-    #         )
-    #
-    #         # 3. Process each topological layer independently
-    #         for group in sorted_groups:
-    #             lca = group['lca_node']
-    #             targets = group['targets']
-    #
-    #             b_trig = self._get_direct_child_branch(lca, trigger_node)
-    #
-    #             b_skips_set = set()
-    #             for t_node in targets:
-    #                 branch = self._get_direct_child_branch(lca, t_node)
-    #                 if branch:
-    #                     b_skips_set.add(branch)
-    #             b_skips = list(b_skips_set)
-    #
-    #             if b_trig is None or not b_skips:
-    #                 continue
-    #
-    #             if lca.operator in [Operator.PARALLEL, Operator.XOR]:
-    #                 b_trig.skip = True
-    #
-    #             elif lca.operator == Operator.SEQUENCE:
-    #                 if b_trig in b_skips:
-    #                     b_trig.skip = True
-    #                 else:
-    #                     try:
-    #                         idx_trig = lca.children.index(b_trig)
-    #                         indices_skip = [lca.children.index(bs) for bs in b_skips]
-    #
-    #                         all_indices = [idx_trig] + indices_skip
-    #                         min_idx = min(all_indices)
-    #                         max_idx = max(all_indices)
-    #
-    #                         nodes_to_encapsulate = lca.children[min_idx: max_idx + 1]
-    #
-    #                         # The Multi-Target Boundary Fix
-    #                         if len(nodes_to_encapsulate) == len(lca.children):
-    #                             b_trig.skip = True
-    #                         else:
-    #                             new_seq = EnhancedProcessTree(operator=Operator.SEQUENCE, parent=lca)
-    #                             for node in nodes_to_encapsulate:
-    #                                 lca.children.remove(node)
-    #                                 new_seq.children.append(node)
-    #                                 node.parent = new_seq
-    #
-    #                             b_trig.skip = True
-    #                             lca.children.insert(min_idx, new_seq)
-    #                     except ValueError:
-    #                         continue
-    #
-    #         # # 4. Tau Cleanup Phase (Run at the very end of processing the targets)
-    #         # for t_node in target_nodes:
-    #         #     bypassed_block = getattr(t_node, 'parent', None)
-    #         #     if bypassed_block and t_node in bypassed_block.children:
-    #         #         bypassed_block.children.remove(t_node)
-    #         #
-    #         #     # If removing the tau leaves a single child, collapse the wrapper
-    #         #     if bypassed_block and len(bypassed_block.children) == 1:
-    #         #         single_child = bypassed_block.children[0]
-    #         #         bb_parent = bypassed_block.parent
-    #         #         if bb_parent is not None:
-    #         #             try:
-    #         #                 bb_idx = bb_parent.children.index(bypassed_block)
-    #         #                 bb_parent.children[bb_idx] = single_child
-    #         #                 single_child.parent = bb_parent
-    #         #             except ValueError:
-    #         #                 pass
-    #
-    #         # # 4. Tau Cleanup Phase (Run safely at the very end)
-    #         # processed_tau_ids = set()
-    #         #
-    #         # for skip_data in skip_candidates:
-    #         #     for t_node in skip_data['skipped_nodes']:
-    #         #
-    #         #         # SAFETY CHECK: Only clean up invisible tau nodes!
-    #         #         # We must NOT delete real skipped activities (like 'a' or 'b')
-    #         #         if t_node.label is not None:
-    #         #             continue
-    #         #
-    #         #         # Deduplicate using physical memory ID to bypass PM4Py's hash bug
-    #         #         t_id = id(t_node)
-    #         #         if t_id in processed_tau_ids:
-    #         #             continue
-    #         #         processed_tau_ids.add(t_id)
-    #         #
-    #         #         bypassed_block = getattr(t_node, 'parent', None)
-    #         #
-    #         #         if bypassed_block and t_node in bypassed_block.children:
-    #         #             bypassed_block.children.remove(t_node)
-    #         #
-    #         #         # If removing the tau leaves a single child, collapse the wrapper
-    #         #         if bypassed_block and len(bypassed_block.children) == 1:
-    #         #             single_child = bypassed_block.children[0]
-    #         #             bb_parent = bypassed_block.parent
-    #         #             if bb_parent is not None:
-    #         #                 try:
-    #         #                     # THE FIX: Inherit properties BEFORE destroying the wrapper block!
-    #         #                     if getattr(bypassed_block, 'skip', False):
-    #         #                         single_child.skip = True
-    #         #                     if getattr(bypassed_block, 'start', False):
-    #         #                         single_child.start = True
-    #         #                     if getattr(bypassed_block, 'stop', False):
-    #         #                         single_child.stop = True
-    #         #
-    #         #                     bb_idx = bb_parent.children.index(bypassed_block)
-    #         #                     bb_parent.children[bb_idx] = single_child
-    #         #                     single_child.parent = bb_parent
-    #         #                 except ValueError:
-    #         #                     pass
-    #         # 4. Tau Cleanup Phase (Run safely at the very end)
-    #         processed_tau_ids = set()
-    #
-    #         for skip_data in skip_candidates:
-    #             for t_node in skip_data['skipped_nodes']:
-    #
-    #                 # SAFETY CHECK 1: Only clean up invisible tau nodes (protect real activities)
-    #                 if t_node.label is not None:
-    #                     continue
-    #
-    #                 bypassed_block = getattr(t_node, 'parent', None)
-    #                 if not bypassed_block:
-    #                     continue
-    #
-    #                 # SAFETY CHECK 2: Protect structural routing inside Loop blocks!
-    #                 if bypassed_block.operator == Operator.LOOP:
-    #                     continue
-    #
-    #                 # Deduplicate using physical memory ID to bypass PM4Py's hash bug
-    #                 t_id = id(t_node)
-    #                 if t_id in processed_tau_ids:
-    #                     continue
-    #                 processed_tau_ids.add(t_id)
-    #
-    #                 if t_node in bypassed_block.children:
-    #                     bypassed_block.children.remove(t_node)
-    #
-    #                 # If removing the tau leaves a single child, collapse the wrapper
-    #                 if len(bypassed_block.children) == 1:
-    #                     single_child = bypassed_block.children[0]
-    #                     bb_parent = bypassed_block.parent
-    #                     if bb_parent is not None:
-    #                         try:
-    #                             # Inherit properties BEFORE destroying the wrapper block!
-    #                             if getattr(bypassed_block, 'skip', False):
-    #                                 single_child.skip = True
-    #                             if getattr(bypassed_block, 'start', False):
-    #                                 single_child.start = True
-    #                             if getattr(bypassed_block, 'stop', False):
-    #                                 single_child.stop = True
-    #
-    #                             bb_idx = bb_parent.children.index(bypassed_block)
-    #                             bb_parent.children[bb_idx] = single_child
-    #                             single_child.parent = bb_parent
-    #                         except ValueError:
-    #                             pass
-
     def _apply_skip_rules(self, tree, skip_candidates):
-        # 1. Global Trigger Grouping (Merge all skips across ALL traces)
         records_by_trigger = {}
-        all_taus_dict = {}  # THE FIX: Use a dictionary to bypass PM4Py hashing!
+        all_taus_dict = {}
 
         for skip_data in skip_candidates:
             trigger = skip_data['trigger']
@@ -434,7 +233,6 @@ class TreePostProcessor:
                 records_by_trigger[trig_id] = {'trigger_node': trigger, 'target_blocks': []}
 
             for t_node in skip_data['skipped_nodes']:
-                # Save the physical node using its unique memory ID
                 all_taus_dict[id(t_node)] = t_node
 
                 bypassed_block = getattr(t_node, 'parent', None)
@@ -444,12 +242,10 @@ class TreePostProcessor:
                 if bypassed_block not in records_by_trigger[trig_id]['target_blocks']:
                     records_by_trigger[trig_id]['target_blocks'].append(bypassed_block)
 
-        # 2. Process cascading layers per unified trigger
         for record in records_by_trigger.values():
             trigger_node = record['trigger_node']
             target_blocks = record['target_blocks']
 
-            # Group target blocks by their specific LCA with the trigger
             lca_groups = {}
             for t_block in target_blocks:
                 lca = self._get_lca(trigger_node, t_block)
@@ -459,14 +255,12 @@ class TreePostProcessor:
                         lca_groups[lca_id] = {'lca_node': lca, 'targets': []}
                     lca_groups[lca_id]['targets'].append(t_block)
 
-            # Sort LCAs by depth to ensure bottom-up cascading resolution
             sorted_groups = sorted(
                 lca_groups.values(),
                 key=lambda group: self._get_depth(group['lca_node']),
                 reverse=True
             )
 
-            # 3. Process each topological layer independently
             for group in sorted_groups:
                 lca = group['lca_node']
                 targets = group['targets']
@@ -500,8 +294,6 @@ class TreePostProcessor:
 
                             nodes_to_encapsulate = lca.children[min_idx: max_idx + 1]
 
-                            # THE FIX: Boundary Validation & Wrapper Overlap Prevention
-                            # If we already wrapped this branch in a previous pass, DO NOT nest it again!
                             if len(nodes_to_encapsulate) == len(lca.children) or getattr(b_trig, '_is_wrapper', False):
                                 b_trig.skip = True
                             else:
@@ -518,33 +310,24 @@ class TreePostProcessor:
                         except ValueError:
                             continue
 
-        # ---------------------------------------------------------------------
-        # 4. Global Tau Cleanup Phase
-        # STRICTLY OUTSIDE THE LOOPS - Only executes when the tree is fully stable
-        # ---------------------------------------------------------------------
-        for t_node in all_taus_dict.values():  # THE FIX: Iterate the dictionary values
+        for t_node in all_taus_dict.values():
 
-            # Protect real activities from being deleted
             if getattr(t_node, 'label', None) is not None:
                 continue
 
             bypassed_block = getattr(t_node, 'parent', None)
 
-            # Protect structural routing inside loops
             if not bypassed_block or bypassed_block.operator == Operator.LOOP:
                 continue
 
-            # Remove the tau node
             if t_node in bypassed_block.children:
                 bypassed_block.children.remove(t_node)
 
-            # If removing the tau leaves a single child, safely collapse the wrapper
             if len(bypassed_block.children) == 1:
                 single_child = bypassed_block.children[0]
                 bb_parent = bypassed_block.parent
                 if bb_parent is not None:
                     try:
-                        # Inherit properties BEFORE destroying the wrapper block
                         if getattr(bypassed_block, 'skip', False):
                             single_child.skip = True
                         if getattr(bypassed_block, 'start', False):

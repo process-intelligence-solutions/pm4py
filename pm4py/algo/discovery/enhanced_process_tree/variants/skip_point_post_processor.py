@@ -12,6 +12,8 @@ class SkipPointPostProcessor:
         self.parameters = parameters if parameters is not None else {}
 
     def apply(self, enhanced_tree: EnhancedProcessTree, skip_records: list) -> EnhancedProcessTree:
+        valid_trigger_groups = {}
+
         for skip_data in skip_records:
             trigger_label = skip_data.get('trigger_label')
             skipped_labels = skip_data.get('skipped_labels', [])
@@ -20,19 +22,40 @@ class SkipPointPostProcessor:
                 continue
 
             trigger_node = self._find_node_by_label(enhanced_tree, trigger_label)
-
-            skipped_nodes = []
-            for lbl in skipped_labels:
-                found_node = self._find_node_by_label(enhanced_tree, lbl)
-                if found_node is not None:
-                    skipped_nodes.append(found_node)
-
-            if trigger_node is None or not skipped_nodes:
+            if not trigger_node:
                 continue
 
-            # 1. Group skipped nodes by their specific LCA with the trigger
+            for lbl in skipped_labels:
+                s_node = self._find_node_by_label(enhanced_tree, lbl)
+                if not s_node:
+                    continue
+
+                lca = self._get_lca(trigger_node, s_node)
+                if lca is None:
+                    continue
+
+                b_skip = self._get_direct_child_branch(lca, s_node)
+
+                b_skip_leaves = self._get_all_leaves(b_skip)
+                b_skip_labels = {leaf.label for leaf in b_skip_leaves if leaf.label}
+                skipped_set = set(skipped_labels)
+
+                if not b_skip_labels.issubset(skipped_set):
+                    continue
+
+                trig_id = id(trigger_node)
+                if trig_id not in valid_trigger_groups:
+                    valid_trigger_groups[trig_id] = {'trigger_node': trigger_node, 'target_nodes': []}
+
+                if s_node not in valid_trigger_groups[trig_id]['target_nodes']:
+                    valid_trigger_groups[trig_id]['target_nodes'].append(s_node)
+
+        for group in valid_trigger_groups.values():
+            trigger_node = group['trigger_node']
+            target_nodes = group['target_nodes']
+
             lca_groups = {}
-            for s_node in skipped_nodes:
+            for s_node in target_nodes:
                 lca = self._get_lca(trigger_node, s_node)
                 if lca is not None:
                     lca_id = id(lca)
@@ -40,21 +63,18 @@ class SkipPointPostProcessor:
                         lca_groups[lca_id] = {'lca_node': lca, 'target_nodes': []}
                     lca_groups[lca_id]['target_nodes'].append(s_node)
 
-            # 2. Sort LCAs by depth to ensure bottom-up cascading resolution
             sorted_groups = sorted(
                 lca_groups.values(),
                 key=lambda group: self._get_depth(group['lca_node']),
                 reverse=True
             )
 
-            # 3. Process each topological layer independently
             for group in sorted_groups:
                 lca = group['lca_node']
                 target_nodes = group['target_nodes']
 
                 b_trig = self._get_direct_child_branch(lca, trigger_node)
 
-                # ... (the rest of your rule logic remains exactly the same starting from here) ...
                 b_skips_set = set()
                 for s_node in target_nodes:
                     branch = self._get_direct_child_branch(lca, s_node)
@@ -82,24 +102,22 @@ class SkipPointPostProcessor:
 
                             nodes_to_encapsulate = lca.children[min_idx: max_idx + 1]
 
-                            if len(nodes_to_encapsulate) == len(lca.children):
+                            if len(nodes_to_encapsulate) == len(lca.children) or getattr(b_trig, '_is_wrapper', False):
                                 b_trig.skip = True
                             else:
                                 new_seq = EnhancedProcessTree(operator=Operator.SEQUENCE, parent=lca)
+                                new_seq._is_wrapper = True
                                 for node in nodes_to_encapsulate:
                                     lca.children.remove(node)
                                     new_seq.children.append(node)
                                     node.parent = new_seq
 
                                 b_trig.skip = True
-
                                 lca.children.insert(min_idx, new_seq)
                         except ValueError:
                             continue
 
         return enhanced_tree
-
-    # --- Helper Functions ---
 
     def _find_node_by_label(self, tree, label):
         """Recursively searches the tree to find a leaf node matching the label."""
@@ -141,3 +159,13 @@ class SkipPointPostProcessor:
             depth += 1
             curr = curr.parent
         return depth
+
+    def _get_all_leaves(self, tree):
+        leaves = []
+        if tree.children:
+            for child in tree.children:
+                leaves.extend(self._get_all_leaves(child))
+        else:
+            if tree.label is not None:
+                leaves.append(tree)
+        return leaves

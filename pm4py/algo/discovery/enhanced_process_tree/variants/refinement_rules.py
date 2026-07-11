@@ -189,6 +189,7 @@ def rule_completion_stop(t1, t2, min_overlap=1):
     if res: return res
     return _check_completion_stop(t2, t1, min_overlap)
 
+
 def rule_skip(t1, t2):
     """
     Identifies a local bypass (skip).
