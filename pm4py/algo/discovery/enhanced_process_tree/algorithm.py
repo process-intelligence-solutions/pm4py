@@ -47,6 +47,7 @@ class Parameters(Enum):
     TAU_DELETION_THRESHOLD = "tau_deletion_threshold"
     VARIANT_THRESHOLD = "variant_threshold"
     SKIP_COVERAGE_THRESHOLD = "skip_coverage_threshold"
+    OPTIMIZE_PARALLEL_SEQUENCES = "optimize_parallel_sequences"
 
 
 class Variant(Enum):
@@ -101,6 +102,7 @@ def apply(
 
     original_log = obj
     refined_event_log = original_log
+    refined_dict = {}
     annotations = {}
     skip_records = []
 
@@ -126,7 +128,7 @@ def apply(
 
     if variant == Variant.REFINEMENT_HYBRID:
         hybrid_processor = SkipPointPostProcessor(parameters=parameters)
-        return hybrid_processor.apply(enhanced_tree, skip_records)
+        return hybrid_processor.apply(enhanced_tree, refined_dict, skip_records)
 
     else:
         alignment_processor = TreePostProcessor(parameters=parameters)

@@ -102,6 +102,9 @@ class TreePostProcessor(BaseTreeProcessor):
 
         self._cleanup_taus(taus_to_delete)
 
+        if self.optimize_parallel_sequences:
+            self._optimize_parallel_sequences(enhanced_tree, log)
+
         return enhanced_tree
 
     def _convert_to_enhanced(self, tree, parent=None):

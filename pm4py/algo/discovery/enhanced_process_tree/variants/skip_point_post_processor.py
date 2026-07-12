@@ -20,7 +20,7 @@ class SkipPointPostProcessor(BaseTreeProcessor):
         super().__init__(parameters)
         self.coverage_threshold = exec_utils.get_param_value(Parameters.SKIP_COVERAGE_THRESHOLD, self.parameters, 1.0)
 
-    def apply(self, enhanced_tree: EnhancedProcessTree, skip_records: list) -> EnhancedProcessTree:
+    def apply(self, enhanced_tree: EnhancedProcessTree, log, skip_records: list) -> EnhancedProcessTree:
         valid_trigger_groups = {}
 
         for skip_data in skip_records:
@@ -101,5 +101,8 @@ class SkipPointPostProcessor(BaseTreeProcessor):
                     continue
 
                 self._apply_structural_encapsulation(lca, b_trig, b_skips)
+
+        if self.optimize_parallel_sequences:
+            self._optimize_parallel_sequences(enhanced_tree, log)
 
         return enhanced_tree
