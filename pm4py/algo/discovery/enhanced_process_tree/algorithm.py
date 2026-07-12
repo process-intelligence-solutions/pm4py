@@ -45,6 +45,7 @@ class Parameters(Enum):
     NOISE_THRESHOLD = "noise_threshold"
     ALIGNMENT_THRESHOLD = "alignment_threshold"
     TAU_DELETION_THRESHOLD = "tau_deletion_threshold"
+    VARIANT_THRESHOLD = "variant_threshold"
 
 
 class Variant(Enum):
@@ -95,6 +96,7 @@ def apply(
     cidk = exec_utils.get_param_value(Parameters.CASE_ID_KEY, parameters, pmutil.constants.CASE_CONCEPT_NAME)
     noise_threshold = exec_utils.get_param_value(Parameters.NOISE_THRESHOLD, parameters, 0.0)
     limit = exec_utils.get_param_value(Parameters.LIMIT, parameters, 25)
+    variant_threshold = exec_utils.get_param_value(Parameters.VARIANT_THRESHOLD, parameters, 0.0)
 
     original_log = obj
     refined_event_log = original_log
@@ -107,7 +109,7 @@ def apply(
         else:
             uvcl = comut.get_variants(comut.project_univariate(obj, key=ack, df_glue=cidk, df_sorting_criterion_key=tk))
 
-        log_refinement = LogRefinement(uvcl)
+        log_refinement = LogRefinement(uvcl, variant_threshold=variant_threshold)
         refined_dict, annotations, skip_records = log_refinement.run(limit=limit)
         refined_event_log = _dict_to_event_log(refined_dict)
 

@@ -28,8 +28,15 @@ from pm4py.algo.discovery.enhanced_process_tree.variants.refinement_rules import
 
 
 class LogRefinement:
-    def __init__(self, tuple_log):
-        self.log = tuple_log
+    def __init__(self, tuple_log, variant_threshold=0.0):
+        self.log = {}
+        if tuple_log:
+            max_freq = max(tuple_log.values())
+            cutoff = max_freq * variant_threshold
+
+            for trace, freq in tuple_log.items():
+                if freq >= cutoff:
+                    self.log[trace] = freq
         self.annotations = {}
         self.skip_records = []
 
