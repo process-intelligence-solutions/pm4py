@@ -1,5 +1,12 @@
+from enum import Enum
+
 from pm4py.algo.discovery.enhanced_process_tree.variants.base_tree_processor import BaseTreeProcessor
-from pm4py.objects.process_tree.obj import Operator, EnhancedProcessTree
+from pm4py.objects.process_tree.obj import EnhancedProcessTree
+from pm4py.util import exec_utils
+
+
+class Parameters(Enum):
+    SKIP_COVERAGE_THRESHOLD = "skip_coverage_threshold"
 
 
 class SkipPointPostProcessor(BaseTreeProcessor):
@@ -11,6 +18,7 @@ class SkipPointPostProcessor(BaseTreeProcessor):
 
     def __init__(self, parameters=None):
         super().__init__(parameters)
+        self.coverage_threshold = exec_utils.get_param_value(Parameters.SKIP_COVERAGE_THRESHOLD, self.parameters, 1.0)
 
     def apply(self, enhanced_tree: EnhancedProcessTree, skip_records: list) -> EnhancedProcessTree:
         valid_trigger_groups = {}
@@ -41,7 +49,13 @@ class SkipPointPostProcessor(BaseTreeProcessor):
                 b_skip_labels = {leaf.label for leaf in b_skip_leaves if leaf.label}
                 skipped_set = set(skipped_labels)
 
-                if not b_skip_labels.issubset(skipped_set):
+                if len(b_skip_labels) > 0:
+                    covered_labels = b_skip_labels.intersection(skipped_set)
+                    coverage_ratio = len(covered_labels) / len(b_skip_labels)
+
+                    if coverage_ratio < self.coverage_threshold:
+                        continue
+                else:
                     continue
 
                 trig_id = id(trigger_node)

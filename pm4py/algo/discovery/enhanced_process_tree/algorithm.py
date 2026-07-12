@@ -46,6 +46,7 @@ class Parameters(Enum):
     ALIGNMENT_THRESHOLD = "alignment_threshold"
     TAU_DELETION_THRESHOLD = "tau_deletion_threshold"
     VARIANT_THRESHOLD = "variant_threshold"
+    SKIP_COVERAGE_THRESHOLD = "skip_coverage_threshold"
 
 
 class Variant(Enum):

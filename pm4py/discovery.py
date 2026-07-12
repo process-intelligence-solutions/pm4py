@@ -780,7 +780,8 @@ def discover_enhanced_process_tree(
         limit: int = 25,
         alignment_threshold: float = 0.05,
         tau_deletion_threshold: float = 1.0,
-        variant_threshold: float = 0.0
+        variant_threshold: float = 0.0,
+    skip_coverage_threshold: float = 1.0
 ) -> EnhancedProcessTree:
     """
         Discovers an Enhanced Process Tree utilizing dynamic routing annotations (start, stop, skip).
@@ -801,6 +802,7 @@ def discover_enhanced_process_tree(
         :param alignment_threshold: Minimum frequency threshold for a start/stop point to be applied (default: 0.05).
         :param tau_deletion_threshold: Deletion limit for redundant routing tau nodes (default: 1.0, deletes all).
         :param variant_threshold: Filters out log variants whose frequency is less than a percentage of the most frequent variant (default: 0.0).
+        :param skip_coverage_threshold: The percentage of a structural block that must be bypassed to validate a block-level skip (default: 1.0).
         :return: An EnhancedProcessTree object.
 
         .. code-block:: python3
@@ -838,6 +840,7 @@ def discover_enhanced_process_tree(
     parameters[enhanced_tree_discovery.Parameters.ALIGNMENT_THRESHOLD] = alignment_threshold
     parameters[enhanced_tree_discovery.Parameters.TAU_DELETION_THRESHOLD] = tau_deletion_threshold
     parameters[enhanced_tree_discovery.Parameters.VARIANT_THRESHOLD] = variant_threshold
+    parameters[enhanced_tree_discovery.Parameters.SKIP_COVERAGE_THRESHOLD] = skip_coverage_threshold
 
     return enhanced_tree_discovery.apply(log, variant=variant, parameters=parameters)
 
