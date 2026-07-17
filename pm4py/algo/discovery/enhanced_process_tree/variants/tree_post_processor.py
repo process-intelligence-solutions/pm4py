@@ -7,7 +7,7 @@ from pm4py.util import exec_utils
 
 
 class Parameters(Enum):
-    THRESHOLD = "threshold"
+    ALIGNMENT_THRESHOLD = "alignment_threshold"
     TAU_DELETION_THRESHOLD = "tau_deletion_threshold"
 
 
@@ -20,7 +20,7 @@ class TreePostProcessor(BaseTreeProcessor):
     def __init__(self, parameters=None):
         super().__init__(parameters)
         self.min_occurrences = 0
-        self.threshold = exec_utils.get_param_value(Parameters.THRESHOLD, self.parameters, 0.05)
+        self.threshold = exec_utils.get_param_value(Parameters.ALIGNMENT_THRESHOLD, self.parameters, 0.00)
         self.tau_threshold = exec_utils.get_param_value(Parameters.TAU_DELETION_THRESHOLD, self.parameters, 1.0)
 
     def apply(self, log, process_tree):
@@ -35,16 +35,16 @@ class TreePostProcessor(BaseTreeProcessor):
         stop_counts = {}
         skip_counts = {}
 
-        global_tau_usage = {}
+        global_node_usage = {}
 
         for trace_alignment in alignments:
-            start_cand, stop_cand, skips, l_taus, t_taus, exec_taus = self._parse_alignment_trace(trace_alignment)
+            start_cand, stop_cand, skips, l_taus, t_taus, executed_model_nodes = self._parse_alignment_trace(trace_alignment)
 
-            for t in exec_taus:
-                tid = id(t)
-                if tid not in global_tau_usage:
-                    global_tau_usage[tid] = {'node': t, 'count': 0}
-                global_tau_usage[tid]['count'] += 1
+            for n in executed_model_nodes:
+                nid = id(n)
+                if nid not in global_node_usage:
+                    global_node_usage[nid] = {'node': n, 'count': 0}
+                global_node_usage[nid]['count'] += 1
 
             if start_cand:
                 sc_id = id(start_cand)
@@ -95,9 +95,27 @@ class TreePostProcessor(BaseTreeProcessor):
 
         taus_to_delete = []
         for tid, t_node in eligible_taus.items():
-            usage_count = global_tau_usage.get(tid, {}).get('count', 0)
+            tau_count = global_node_usage.get(tid, {}).get('count', 0)
+            parent = t_node.parent
 
-            if usage_count <= max_tau_occurrences:
+            # We only calculate ratios for XOR blocks.
+            if parent and parent.operator == Operator.XOR:
+                # How many times did execution reach this specific XOR block?
+                # Sum the executions of all children inside the XOR.
+                total_decision_visits = 0
+                for child in parent.children:
+                    total_decision_visits += global_node_usage.get(id(child), {}).get('count', 0)
+
+                if total_decision_visits > 0:
+                    usage_ratio = tau_count / total_decision_visits
+                else:
+                    usage_ratio = 0
+            else:
+                # If it's not an XOR, it shouldn't be deleted anyway
+                usage_ratio = 1.1  # Force it to fail the threshold
+
+            # If the tau usage ratio is LESS than or EQUAL to the threshold, prune it!
+            if usage_ratio <= self.tau_threshold:
                 taus_to_delete.append(t_node)
 
         self._cleanup_taus(taus_to_delete)
@@ -143,7 +161,7 @@ class TreePostProcessor(BaseTreeProcessor):
         trailing_taus = []
 
         if not model_sequence:
-            return None, None, [], [], []
+            return None, None, [], [], [], []
 
         leading_count = 0
         for move in model_sequence:
@@ -223,7 +241,9 @@ class TreePostProcessor(BaseTreeProcessor):
             if skipped_nodes:
                 skip_groups.append({'trigger': trigger_node, 'skipped_nodes': skipped_nodes})
 
-        return start_candidate, stop_candidate, skip_groups, leading_taus, trailing_taus, executed_taus
+        executed_model_nodes = [move['node'] for move in model_sequence]
+
+        return start_candidate, stop_candidate, skip_groups, leading_taus, trailing_taus, executed_model_nodes
 
     def _apply_skip_rules(self, tree, skip_candidates):
         records_by_trigger = {}
