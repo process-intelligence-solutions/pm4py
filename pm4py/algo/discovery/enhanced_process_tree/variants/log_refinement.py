@@ -98,13 +98,11 @@ class LogRefinement:
                     continue
 
                 for j in range(i + 1, len(traces)):
-                    if i == j: # or traces[j] in traces_to_delete:
+                    if i == j:
                         continue
 
                     t1, t2 = traces[i], traces[j]
 
-                    # If neither trace is marked as untested, we already evaluated this
-                    # exact pair in a previous iteration
                     if (t1 not in untested_traces) and (t2 not in untested_traces):
                         continue
 
@@ -120,7 +118,6 @@ class LogRefinement:
                                     violates_realism = True
                                     break
 
-                            # If this rule creates an infinitely looping trace, reject it!
                             if violates_realism:
                                 continue
 

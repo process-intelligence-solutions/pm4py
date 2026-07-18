@@ -26,7 +26,6 @@ class TreePostProcessor(BaseTreeProcessor):
     def apply(self, log, process_tree):
         total_traces = len(log)
         self.min_occurrences = total_traces * self.threshold
-        max_tau_occurrences = total_traces * self.tau_threshold
 
         enhanced_tree = self._convert_to_enhanced(process_tree)
         alignments = pt_alignments.apply(log, enhanced_tree, parameters=self.parameters)
@@ -38,7 +37,8 @@ class TreePostProcessor(BaseTreeProcessor):
         global_node_usage = {}
 
         for trace_alignment in alignments:
-            start_cand, stop_cand, skips, l_taus, t_taus, executed_model_nodes = self._parse_alignment_trace(trace_alignment)
+            start_cand, stop_cand, skips, l_taus, t_taus, executed_model_nodes = self._parse_alignment_trace(
+                trace_alignment)
 
             for n in executed_model_nodes:
                 nid = id(n)
@@ -98,10 +98,7 @@ class TreePostProcessor(BaseTreeProcessor):
             tau_count = global_node_usage.get(tid, {}).get('count', 0)
             parent = t_node.parent
 
-            # We only calculate ratios for XOR blocks.
             if parent and parent.operator == Operator.XOR:
-                # How many times did execution reach this specific XOR block?
-                # Sum the executions of all children inside the XOR.
                 total_decision_visits = 0
                 for child in parent.children:
                     total_decision_visits += global_node_usage.get(id(child), {}).get('count', 0)
@@ -111,10 +108,8 @@ class TreePostProcessor(BaseTreeProcessor):
                 else:
                     usage_ratio = 0
             else:
-                # If it's not an XOR, it shouldn't be deleted anyway
-                usage_ratio = 1.1  # Force it to fail the threshold
+                usage_ratio = 1.1
 
-            # If the tau usage ratio is LESS than or EQUAL to the threshold, prune it!
             if usage_ratio <= self.tau_threshold:
                 taus_to_delete.append(t_node)
 
