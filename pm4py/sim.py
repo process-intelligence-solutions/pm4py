@@ -112,7 +112,12 @@ def play_out(
 
             return dfg_playout.apply(args[0], args[1], args[2], **kwargs)
     elif len(args) == 1:
-        from pm4py.objects.process_tree.obj import ProcessTree
+        from pm4py.objects.process_tree.obj import ProcessTree, EnhancedProcessTree
+
+        if isinstance(args[0], EnhancedProcessTree):
+            from pm4py import convert_to_petri_net
+            net, im , fm = convert_to_petri_net(args[0])
+            return play_out(net, im, fm, **kwargs)
 
         if isinstance(args[0], ProcessTree):
             from pm4py.algo.simulation.playout.process_tree import algorithm
