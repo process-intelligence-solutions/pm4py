@@ -9,7 +9,7 @@ networkx==3.6.1
 numpy==2.5.0
 packaging==26.2
 pandas==3.0.4
-pillow==12.2.0
+pillow==12.3.0
 pyparsing==3.3.2
 python-dateutil==2.9.0.post0
 pytz==2026.2
