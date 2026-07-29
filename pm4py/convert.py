@@ -49,9 +49,9 @@ import networkx as nx
 
 
 def convert_to_event_log(
-    obj: Union[pd.DataFrame, EventStream],
-    case_id_key: str = "case:concept:name",
-    **kwargs,
+        obj: Union[pd.DataFrame, EventStream],
+        case_id_key: str = "case:concept:name",
+        **kwargs,
 ) -> EventLog:
     """
     Converts a DataFrame or EventStream object to an event log object.
@@ -90,9 +90,9 @@ def convert_to_event_log(
 
 
 def convert_to_event_stream(
-    obj: Union[EventLog, pd.DataFrame],
-    case_id_key: str = "case:concept:name",
-    **kwargs,
+        obj: Union[EventLog, pd.DataFrame],
+        case_id_key: str = "case:concept:name",
+        **kwargs,
 ) -> EventStream:
     """
     Converts a log object or DataFrame to an event stream.
@@ -128,7 +128,7 @@ def convert_to_event_stream(
 
 
 def convert_to_dataframe(
-    obj: Union[EventStream, EventLog], **kwargs
+        obj: Union[EventStream, EventLog], **kwargs
 ) -> pd.DataFrame:
     """
     Converts a log object (``EventStream`` or ``EventLog``) to a Pandas DataFrame.
@@ -160,7 +160,7 @@ def convert_to_dataframe(
 
 
 def convert_to_bpmn(
-    *args: Union[Tuple[PetriNet, Marking, Marking], ProcessTree]
+        *args: Union[Tuple[PetriNet, Marking, Marking], ProcessTree]
 ) -> BPMN:
     """
     Converts an object to a BPMN diagram.
@@ -208,7 +208,7 @@ def convert_to_bpmn(
 
 
 def convert_to_petri_net(
-    *args: Union[BPMN, ProcessTree, HeuristicsNet, GeneticMatrix, POWL, dict]
+        *args: Union[BPMN, ProcessTree, HeuristicsNet, GeneticMatrix, POWL, dict]
 ) -> Tuple[PetriNet, Marking, Marking]:
     """
     Converts an input model to an (accepting) Petri net.
@@ -277,7 +277,7 @@ def convert_to_petri_net(
 
 
 def convert_to_process_tree(
-    *args: Union[Tuple[PetriNet, Marking, Marking], BPMN, ProcessTree, POWL]
+        *args: Union[Tuple[PetriNet, Marking, Marking], BPMN, ProcessTree, POWL]
 ) -> ProcessTree:
     """
     Converts an input model to a process tree.
@@ -367,7 +367,7 @@ def convert_to_powl(*args: Union[Tuple[PetriNet, Marking, Marking], BPMN, Proces
 
 
 def convert_to_reachability_graph(
-    *args: Union[Tuple[PetriNet, Marking, Marking], BPMN, ProcessTree]
+        *args: Union[Tuple[PetriNet, Marking, Marking], BPMN, ProcessTree]
 ) -> TransitionSystem:
     """
     Converts an input model to a reachability graph (transition system).
@@ -400,13 +400,13 @@ def convert_to_reachability_graph(
 
 
 def convert_log_to_ocel(
-    log: Union[EventLog, EventStream, pd.DataFrame],
-    activity_column: str = "concept:name",
-    timestamp_column: str = "time:timestamp",
-    object_types: Optional[Collection[str]] = None,
-    obj_separator: str = " AND ",
-    additional_event_attributes: Optional[Collection[str]] = None,
-    additional_object_attributes: Optional[Dict[str, Collection[str]]] = None,
+        log: Union[EventLog, EventStream, pd.DataFrame],
+        activity_column: str = "concept:name",
+        timestamp_column: str = "time:timestamp",
+        object_types: Optional[Collection[str]] = None,
+        obj_separator: str = " AND ",
+        additional_event_attributes: Optional[Collection[str]] = None,
+        additional_object_attributes: Optional[Dict[str, Collection[str]]] = None,
 ) -> OCEL:
     """
     Converts an event log to an object-centric event log (OCEL) with one or more object types.
@@ -459,7 +459,7 @@ def convert_log_to_ocel(
 
 
 def convert_ocel_to_networkx(
-    ocel: OCEL, variant: str = "ocel_to_nx"
+        ocel: OCEL, variant: str = "ocel_to_nx"
 ) -> nx.DiGraph:
     """
     Converts an OCEL to a NetworkX DiGraph object.
@@ -492,11 +492,11 @@ def convert_ocel_to_networkx(
 
 
 def convert_log_to_networkx(
-    log: Union[EventLog, EventStream, pd.DataFrame],
-    include_df: bool = True,
-    case_id_key: str = "concept:name",
-    other_case_attributes_as_nodes: Optional[Collection[str]] = None,
-    event_attributes_as_nodes: Optional[Collection[str]] = None,
+        log: Union[EventLog, EventStream, pd.DataFrame],
+        include_df: bool = True,
+        case_id_key: str = "concept:name",
+        other_case_attributes_as_nodes: Optional[Collection[str]] = None,
+        event_attributes_as_nodes: Optional[Collection[str]] = None,
 ) -> nx.DiGraph:
     """
     Converts an event log to a NetworkX DiGraph object.
@@ -539,12 +539,12 @@ def convert_log_to_networkx(
 
 
 def convert_log_to_time_intervals(
-    log: Union[EventLog, pd.DataFrame],
-    filter_activity_couple: Optional[Tuple[str, str]] = None,
-    activity_key: str = "concept:name",
-    timestamp_key: str = "time:timestamp",
-    case_id_key: str = "case:concept:name",
-    start_timestamp_key: str = "time:timestamp",
+        log: Union[EventLog, pd.DataFrame],
+        filter_activity_couple: Optional[Tuple[str, str]] = None,
+        activity_key: str = "concept:name",
+        timestamp_key: str = "time:timestamp",
+        case_id_key: str = "case:concept:name",
+        start_timestamp_key: str = "time:timestamp",
 ) -> List[List[Any]]:
     """
     Extracts a list of time intervals from an event log.
@@ -594,7 +594,7 @@ def convert_log_to_time_intervals(
 
 
 def convert_petri_net_to_networkx(
-    net: PetriNet, im: Marking, fm: Marking
+        net: PetriNet, im: Marking, fm: Marking
 ) -> nx.DiGraph:
     """
     Converts a Petri net to a NetworkX DiGraph.
@@ -643,7 +643,7 @@ def convert_petri_net_to_networkx(
 
 
 def convert_petri_net_type(
-    net: PetriNet, im: Marking, fm: Marking, type: str = "classic"
+        net: PetriNet, im: Marking, fm: Marking, type: str = "classic"
 ) -> Tuple[PetriNet, Marking, Marking]:
     """
     Changes the internal type of a Petri net.

@@ -778,7 +778,7 @@ def discover_enhanced_process_tree(
         timestamp_key: str = "time:timestamp",
         case_id_key: str = "case:concept:name",
         limit: int = 25,
-        alignment_threshold: float = 0.05,
+        alignment_threshold: float = 0.00,
         tau_deletion_threshold: float = 1.0,
         variant_threshold: float = 0.0,
         skip_coverage_threshold: float = 1.0,
@@ -802,7 +802,7 @@ def discover_enhanced_process_tree(
         :param limit: Attribute to set the limit of repeated steps in log refinement (default: 25).
         :param alignment_threshold: Minimum frequency threshold for a start/stop/skip point to be applied (default: 0).
         :param tau_deletion_threshold: Deletion limit for redundant routing tau nodes (default: 1.0, deletes all).
-        :param variant_threshold: Filters out log variants whose frequency is less than a percentage of the most frequent variant (default: 0.0).
+            :param variant_threshold: Filters out log variants whose frequency is less than a percentage of the most frequent variant (default: 0.0).
         :param skip_coverage_threshold: The percentage of a structural block that must be bypassed to validate a block-level skip (default: 1.0).
         :param optimize_parallel_sequences: Try to optimize parallel sequences to find sequence cuts for single activities (default: False).
         :return: An EnhancedProcessTree object.
