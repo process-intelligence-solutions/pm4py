@@ -547,17 +547,25 @@ def __parse_attribute(elem, store, key, value, tree):
         else:
             store[key] = value
     else:
-        if elem.getchildren()[0].tag.endswith(xes_constants.TAG_VALUES):
-            store[key] = {
-                xes_constants.KEY_VALUE: value,
-                xes_constants.KEY_CHILDREN: list(),
-            }
-            tree[elem] = store[key][xes_constants.KEY_CHILDREN]
-            tree[elem.getchildren()[0]] = tree[elem]
+        first_child_is_values = elem.getchildren()[0].tag.endswith(
+            xes_constants.TAG_VALUES
+        )
+        children = list() if first_child_is_values else dict()
+        entry = {
+            xes_constants.KEY_VALUE: value,
+            xes_constants.KEY_CHILDREN: children,
+        }
+        if type(store) is list:
+            # a nested <list> whose own parent is itself a <values> block
+            # (i.e. store is a list of key-value pairs, not a dict) must be
+            # appended the same way a leaf value would be, rather than
+            # assigned with store[key] = ..., which raises a TypeError
+            # ("list indices must be integers or slices, not str") since
+            # store is a list, not a dict.
+            store.append((key, entry))
         else:
-            store[key] = {
-                xes_constants.KEY_VALUE: value,
-                xes_constants.KEY_CHILDREN: dict(),
-            }
-            tree[elem] = store[key][xes_constants.KEY_CHILDREN]
+            store[key] = entry
+        tree[elem] = children
+        if first_child_is_values:
+            tree[elem.getchildren()[0]] = tree[elem]
     return tree

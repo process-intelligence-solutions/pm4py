@@ -5,6 +5,7 @@ import unittest
 
 from pm4py.objects.log.importer.xes import importer
 from pm4py.objects.log.importer.xes.variants import (
+    iterparse,
     iterparse_20,
     iterparse_mem_compressed,
 )
@@ -37,6 +38,42 @@ XES = b"""<?xml version='1.0' encoding='UTF-8'?>
   <trace>
     <string key='concept:name' value='case-2'/>
     <event><string key='concept:name' value='C'/><date key='time:timestamp' value='2024-01-03T00:00:00Z'/></event>
+  </trace>
+</log>"""
+
+
+XES_NESTED_LIST_LOG_ATTRIBUTE = b"""<?xml version='1.0' encoding='UTF-8'?>
+<log xmlns='http://www.xes-standard.org/' xes.version='2.0'>
+  <string key='extraction-date' value='2026-08-12'/>
+  <list key='entities'>
+    <values>
+      <list key='SalesOrg'>
+        <values>
+          <string key='level' value='trace'/>
+          <string key='key-attribute' value='SalesOrg'/>
+        </values>
+      </list>
+    </values>
+  </list>
+  <list key='kpi'>
+    <values>
+      <list key='OTC-ON'>
+        <values>
+          <string key='kpi-code' value='OTC-ON'/>
+          <float key='value' value='8687.0'/>
+        </values>
+      </list>
+      <list key='OTC-CN'>
+        <values>
+          <string key='kpi-code' value='OTC-CN'/>
+          <float key='value' value='377.0'/>
+        </values>
+      </list>
+    </values>
+  </list>
+  <trace>
+    <string key='concept:name' value='case-1'/>
+    <event><string key='concept:name' value='A'/><date key='time:timestamp' value='2024-01-02T00:00:00Z'/></event>
   </trace>
 </log>"""
 
@@ -97,6 +134,33 @@ class XesDeepCoverageTest(unittest.TestCase):
             self.assertEqual(2, len(log))
         self.assertIs(importer.Variants.ITERPARSE_20, importer.__dict__["__get_variant"]("iterparse_20"))
         self.assertIs(importer.Variants.ITERPARSE_MEM_COMPRESSED, importer.__dict__["__get_variant"]("iterparse_mem_compressed"))
+
+    def test_iterparse_nested_list_inside_a_list_of_values(self):
+        # A <list> whose <values> children are themselves further <list>
+        # elements (e.g. a log-level "kpi" list containing several named
+        # sub-lists) used to raise "TypeError: list indices must be
+        # integers or slices, not str", since the nested list's own
+        # attribute store was a list (a list-of-values container), not a
+        # dict, and __parse_attribute() only knew how to assign into it by
+        # key when it was a dict.
+        log = iterparse.import_from_string(XES_NESTED_LIST_LOG_ATTRIBUTE)
+        self.assertEqual(1, len(log))
+
+        entities_children = dict(log.attributes["entities"]["children"])
+        sales_org_value, sales_org_children = entities_children["SalesOrg"]["value"], dict(
+            entities_children["SalesOrg"]["children"]
+        )
+        self.assertIsNone(sales_org_value)
+        self.assertEqual("trace", sales_org_children["level"])
+        self.assertEqual("SalesOrg", sales_org_children["key-attribute"])
+
+        kpi_children = dict(log.attributes["kpi"]["children"])
+        otc_on_children = dict(kpi_children["OTC-ON"]["children"])
+        self.assertEqual("OTC-ON", otc_on_children["kpi-code"])
+        self.assertEqual(8687.0, otc_on_children["value"])
+        otc_cn_children = dict(kpi_children["OTC-CN"]["children"])
+        self.assertEqual("OTC-CN", otc_cn_children["kpi-code"])
+        self.assertEqual(377.0, otc_cn_children["value"])
 
 
 if __name__ == "__main__":
