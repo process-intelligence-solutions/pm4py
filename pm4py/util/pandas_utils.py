@@ -60,7 +60,7 @@ def to_dict_records(df):
     if is_polars_lazyframe(df):
         return df.collect().to_dicts()
 
-    return df.to_dict("records")
+    return df.to_dict(orient="records")
 
 
 def to_dict_index(df):
@@ -84,7 +84,7 @@ def to_dict_index(df):
             for idx, row in enumerate(collected_df.iter_rows(named=True))
         }
 
-    return df.to_dict("index")
+    return df.to_dict(orient="index")
 
 
 def insert_index(
