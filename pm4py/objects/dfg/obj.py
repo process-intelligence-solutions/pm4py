@@ -30,19 +30,26 @@ class PerformanceDFG(dict):
     backwards compatibility.  The optional business-hour schedule lets
     downstream consumers render those values using the same definition of a
     working day that was used during discovery.
+
+    The optional business timezone identifies the scheduled elapsed-time mode.
+    It is retained by copy(), alongside the weekly schedule.
     """
 
-    def __init__(self, *args, business_hour_slots=None, **kwargs):
+    def __init__(
+        self, *args, business_hour_slots=None, business_timezone=None, **kwargs
+    ):
         super().__init__(*args, **kwargs)
         self.business_hour_slots = (
             tuple(tuple(slot) for slot in business_hour_slots)
             if business_hour_slots is not None
             else None
         )
+        self.business_timezone = business_timezone
 
     def copy(self):
         return type(self)(
-            self, business_hour_slots=self.business_hour_slots
+            self, business_hour_slots=self.business_hour_slots,
+            business_timezone=self.business_timezone,
         )
 
 

@@ -24,7 +24,12 @@ from enum import Enum
 
 from pm4py.util import constants, exec_utils
 from pm4py.util import xes_constants as xes_util
-from pm4py.util.business_hours import BusinessHours
+from pm4py.util.business_hours import (
+    BusinessHours,
+    _as_utc_datetime,
+    _prepare_scheduled_business_hours,
+    soj_time_business_hours_diff,
+)
 from typing import Optional, Dict, Any, Union, Tuple
 from pm4py.objects.log.obj import EventLog, EventStream
 
@@ -37,6 +42,7 @@ class Parameters(Enum):
     BUSINESS_HOURS = "business_hours"
     BUSINESS_HOUR_SLOTS = "business_hour_slots"
     WORKCALENDAR = "workcalendar"
+    BUSINESS_TIMEZONE = "business_timezone"
 
 
 def apply(
@@ -64,6 +70,9 @@ def performance(
             timestamp_key -> Attribute to use as timestamp
 
         - Parameters.BUSINESS_HOURS => calculates the difference of time based on the business hours, not the total time. Default: False
+        - Parameters.BUSINESS_TIMEZONE => optional IANA timezone selecting
+          scheduled elapsed seconds with valid aware timestamps. Requires
+          business hours and microsecond precision.
         - Parameters.BUSINESS_HOURS_SLOTS => work schedule of the company.
           The following list defines that business hours are Mondays 07:00 - 17:00
           and Tuesdays 07:00 - 12:00 and 13:00 - 17:00::
@@ -115,7 +124,39 @@ def performance(
         constants.DEFAULT_BUSINESS_HOURS_WORKCALENDAR,
     )
 
-    if business_hours:
+    business_timezone = exec_utils.get_param_value(
+        Parameters.BUSINESS_TIMEZONE, parameters, None
+    )
+    if business_timezone is not None:
+        if not business_hours:
+            raise ValueError("business_timezone requires business_hours=True")
+        business_hours_slots = tuple(
+            tuple(slot) for slot in business_hours_slots
+        )
+        _prepare_scheduled_business_hours(
+            business_hours_slots, business_timezone
+        )
+        for trace in log:
+            for event in trace:
+                for key in {timestamp_key, start_timestamp_key}:
+                    _as_utc_datetime(event[key])
+        dfgs0 = map(
+            lambda trace: [
+                (
+                    (trace[i - 1][activity_key], trace[i][activity_key]),
+                    soj_time_business_hours_diff(
+                        trace[i - 1][timestamp_key],
+                        trace[i][start_timestamp_key],
+                        business_hours_slots,
+                        workcalendar,
+                        business_timezone=business_timezone,
+                    ),
+                )
+                for i in range(1, len(trace))
+            ],
+            log,
+        )
+    elif business_hours:
         dfgs0 = map(
             (
                 lambda t: [

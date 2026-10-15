@@ -212,6 +212,7 @@ def discover_performance_dfg(
     timestamp_key: str = "time:timestamp",
     case_id_key: str = "case:concept:name",
     perf_aggregation_key: str = "all",
+    business_timezone: Optional[str] = None,
 ) -> Tuple[dict, dict, dict]:
     """
     Discovers a Performance Directly-Follows Graph from an event log.
@@ -240,6 +241,13 @@ def discover_performance_dfg(
     :param timestamp_key: Attribute to be used for the timestamp (default: "time:timestamp").
     :param case_id_key: Attribute to be used as case identifier (default: "case:concept:name").
     :param perf_aggregation_key: Selector for the type of aggregation (all, mean, median, max, min, sum, stdev)
+    :param business_timezone: Optional IANA timezone name. With business hours
+        enabled, this selects UTC elapsed seconds within the local weekly
+        schedule. Require valid aware timestamps at microsecond precision.
+        Ambiguous or nonexistent schedule boundaries, including split
+        midnights, raise ValueError. None retains the legacy calculation,
+        which ignores timestamp timezone offsets. An empty schedule gives
+        zero working time; equal or reversed UTC intervals give zero.
     When business hours are enabled, the returned performance DFG remains
     dictionary-compatible and also retains the configured schedule so that
     visualizations can express its durations in working days.
@@ -260,6 +268,18 @@ def discover_performance_dfg(
     """
     __event_log_deprecation_warning(log)
 
+    if business_timezone is not None:
+        if not business_hours:
+            raise ValueError("business_timezone requires business_hours=True")
+        from pm4py.util.business_hours import _prepare_scheduled_business_hours
+
+        business_hour_slots = tuple(
+            tuple(slot) for slot in business_hour_slots
+        )
+        _prepare_scheduled_business_hours(
+            business_hour_slots, business_timezone
+        )
+
     properties = get_properties(
         log,
         activity_key=activity_key,
@@ -268,12 +288,13 @@ def discover_performance_dfg(
     )
 
     if check_is_pandas_dataframe(log):
-        check_pandas_dataframe_columns(
-            log,
-            activity_key=activity_key,
-            timestamp_key=timestamp_key,
-            case_id_key=case_id_key,
-        )
+        if business_timezone is None or is_polars_lazyframe(log):
+            check_pandas_dataframe_columns(
+                log,
+                activity_key=activity_key,
+                timestamp_key=timestamp_key,
+                case_id_key=case_id_key,
+            )
         from pm4py.util import constants
 
         if is_polars_lazyframe(log):
@@ -301,6 +322,7 @@ def discover_performance_dfg(
             business_hours=business_hours,
             business_hours_slot=business_hour_slots,
             workcalendar=workcalendar,
+            business_timezone=business_timezone,
         )
 
         start_activities = start_activities_module.get_start_activities(
@@ -322,6 +344,9 @@ def discover_performance_dfg(
             business_hour_slots
         )
         properties[dfg_discovery.Parameters.WORKCALENDAR] = workcalendar
+        properties[dfg_discovery.Parameters.BUSINESS_TIMEZONE] = (
+            business_timezone
+        )
         dfg = dfg_discovery.apply(log, parameters=properties)
         from pm4py.statistics.start_activities.log import (
             get as start_activities_module,
@@ -340,7 +365,8 @@ def discover_performance_dfg(
         from pm4py.objects.dfg.obj import PerformanceDFG
 
         dfg = PerformanceDFG(
-            dfg, business_hour_slots=business_hour_slots
+            dfg, business_hour_slots=business_hour_slots,
+            business_timezone=business_timezone,
         )
 
     return dfg, start_activities, end_activities

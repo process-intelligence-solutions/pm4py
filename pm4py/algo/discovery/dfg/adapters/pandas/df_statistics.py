@@ -22,8 +22,26 @@ Contact: info@processintelligence.solutions
 import numpy as np
 
 from pm4py.util import xes_constants, pandas_utils, constants
-from pm4py.util.business_hours import soj_time_business_hours_diff
+from pm4py.util.business_hours import (
+    _as_utc_datetime,
+    _prepare_scheduled_business_hours,
+    soj_time_business_hours_diff,
+)
 import pandas as pd
+
+
+def _prepare_scheduled_dataframe(df, timestamp_key, start_timestamp_key):
+    """Validate source timestamps and normalise a private frame to UTC."""
+    df = df.copy()
+    columns = {timestamp_key}
+    if start_timestamp_key in df.columns:
+        columns.add(start_timestamp_key)
+    for column in columns:
+        if df.empty and getattr(df[column].dtype, "tz", None) is None:
+            raise ValueError("An empty timestamp column needs an aware dtype")
+        values = [_as_utc_datetime(value) for value in df[column]]
+        df[column] = pd.to_datetime(values, utc=True)
+    return df
 
 
 def get_dfg_graph(
@@ -44,6 +62,7 @@ def get_dfg_graph(
         target_activity_key=None,
         reduce_columns=True,
         cost_attribute=None,
+        business_timezone=None,
 ):
     """
     Get DFG graph from Pandas dataframe - optimized version
@@ -72,6 +91,9 @@ def get_dfg_graph(
         In the counts, keep only one occurrence of the path per case (the first)
     window
         Window of the DFG (default 1)
+    business_timezone
+        Optional IANA timezone for scheduled elapsed time. Requires
+        business_hours=True and aware timestamps at microsecond precision.
 
     Returns
     -------
@@ -79,6 +101,33 @@ def get_dfg_graph(
         DFG in the chosen measure (may be only the frequency, only the performance, or both)
 
     """
+    if business_timezone is not None:
+        if not business_hours:
+            raise ValueError("business_timezone requires business_hours=True")
+        if business_hours_slot is None:
+            business_hours_slot = constants.DEFAULT_BUSINESS_HOUR_SLOTS
+        business_hours_slot = tuple(
+            tuple(slot) for slot in business_hours_slot
+        )
+        _prepare_scheduled_business_hours(
+            business_hours_slot, business_timezone
+        )
+        df = _prepare_scheduled_dataframe(
+            df,
+            timestamp_key,
+            (
+                xes_constants.DEFAULT_START_TIMESTAMP_KEY
+                if start_timestamp_key is None else start_timestamp_key
+            ),
+        )
+        pandas_utils.check_pandas_dataframe_columns(
+            df,
+            activity_key=activity_key,
+            case_id_key=case_id_glue,
+            timestamp_key=timestamp_key,
+            start_timestamp_key=start_timestamp_key,
+        )
+
     # added support to specify an activity key for the target event which is different
     # from the activity key of the source event.
     if target_activity_key is None:
@@ -169,7 +218,10 @@ def get_dfg_graph(
 
             # Use list comprehension which is faster than apply but handles datetime objects correctly
             flow_times = [
-                soj_time_business_hours_diff(ts, start_ts, business_hours_slot, workcalendar)
+                soj_time_business_hours_diff(
+                    ts, start_ts, business_hours_slot, workcalendar,
+                    business_timezone=business_timezone,
+                )
                 for ts, start_ts in zip(ts_values, start_ts_values)
             ]
 

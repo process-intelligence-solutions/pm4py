@@ -25,7 +25,10 @@ from typing import Dict, List, Optional, Tuple, Union
 import polars as pl
 
 from pm4py.util import constants, xes_constants
-from pm4py.util.business_hours import soj_time_business_hours_diff
+from pm4py.util.business_hours import (
+    _prepare_scheduled_business_hours,
+    soj_time_business_hours_diff,
+)
 
 
 def _ensure_start_timestamp(
@@ -62,8 +65,49 @@ def get_dfg_graph(
     target_activity_key: Optional[str] = None,
     reduce_columns: bool = True,
     cost_attribute: Optional[str] = None,
+    business_timezone: Optional[str] = None,
 ) -> Union[Dict[Tuple[str, str], int], Dict[Tuple[str, str], float], List[Dict]]:
-    """Compute DFG statistics on a Polars LazyFrame."""
+    """Compute DFG statistics on a Polars LazyFrame.
+
+    An explicit business_timezone selects scheduled elapsed time and requires
+    business_hours=True with aware timestamps at microsecond precision.
+    """
+
+    if business_timezone is not None:
+        if not business_hours:
+            raise ValueError("business_timezone requires business_hours=True")
+        if business_hours_slot is None:
+            business_hours_slot = constants.DEFAULT_BUSINESS_HOUR_SLOTS
+        business_hours_slot = tuple(
+            tuple(slot) for slot in business_hours_slot
+        )
+        _prepare_scheduled_business_hours(
+            business_hours_slot, business_timezone
+        )
+        schema = df.collect_schema()
+        columns = {timestamp_key}
+        selected_start = (
+            xes_constants.DEFAULT_START_TIMESTAMP_KEY
+            if start_timestamp_key is None else start_timestamp_key
+        )
+        if selected_start in schema:
+            columns.add(selected_start)
+        for column in columns:
+            dtype = schema[column]
+            if not isinstance(dtype, pl.Datetime) or dtype.time_zone is None:
+                raise ValueError(
+                    "Scheduled elapsed time requires aware timestamps"
+                )
+            invalid = pl.col(column).is_null()
+            if dtype.time_unit == "ns":
+                invalid = invalid | (pl.col(column).cast(pl.Int64) % 1000 != 0)
+            if df.select(invalid.any()).collect().item():
+                raise ValueError(
+                    "Timestamps must be non-null and at microsecond precision"
+                )
+        df = df.with_columns(
+            [pl.col(column).dt.convert_time_zone("UTC") for column in columns]
+        )
 
     if target_activity_key is None:
         target_activity_key = activity_key
@@ -170,6 +214,7 @@ def get_dfg_graph(
                         row[start_timestamp_key + suffix],
                         business_hours_slot,
                         workcalendar,
+                        business_timezone=business_timezone,
                     ),
                     return_dtype=pl.Float64,
                 )

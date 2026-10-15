@@ -19,14 +19,154 @@ visit <https://www.gnu.org/licenses/>.
 Website: https://processintelligence.solutions
 Contact: info@processintelligence.solutions
 '''
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 from functools import lru_cache
+from numbers import Integral, Rational, Real
 from typing import List, Tuple
+from zoneinfo import ZoneInfo
 
 from pm4py.util import constants
 
 
 _SECONDS_PER_DAY = 24 * 60 * 60
+_MICROSECONDS_PER_SECOND = 1000000
+
+
+def _prepare_scheduled_business_hour_slots(slots):
+    """Validate and take the exact union of a weekly elapsed-time schedule."""
+    canonical_slots = []
+    for start, end in slots:
+        for value in (start, end):
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, Real)
+            ):
+                raise ValueError("Business-hour slots need finite numbers")
+        if not 0 <= start < end <= 7 * _SECONDS_PER_DAY:
+            raise ValueError("Business-hour slots must fit within one week")
+        endpoints = []
+        for value in (start, end):
+            if isinstance(value, Integral):
+                micros = int(value) * _MICROSECONDS_PER_SECOND
+            elif isinstance(value, Rational):
+                scaled = value * _MICROSECONDS_PER_SECOND
+                if scaled.denominator != 1:
+                    raise ValueError(
+                        "Business-hour slots need microsecond precision"
+                    )
+                micros = int(scaled)
+            else:
+                native = float(value)
+                micros = round(native * _MICROSECONDS_PER_SECOND)
+                if value != native or native != (
+                    micros / _MICROSECONDS_PER_SECOND
+                ):
+                    raise ValueError(
+                        "Business-hour slots need microsecond precision"
+                    )
+            endpoints.append(micros / _MICROSECONDS_PER_SECOND)
+        canonical_slots.append(tuple(endpoints))
+
+    unified = []
+    for start, end in sorted(canonical_slots):
+        if unified and unified[-1][1] >= start:
+            unified[-1][1] = max(unified[-1][1], end)
+        else:
+            unified.append([start, end])
+    return tuple(tuple(slot) for slot in unified)
+
+
+def _prepare_scheduled_business_hours(slots, business_timezone):
+    if not isinstance(business_timezone, str) or not business_timezone:
+        raise ValueError("business_timezone must be an IANA timezone name")
+    zone = ZoneInfo(business_timezone)
+    slots = _prepare_scheduled_business_hour_slots(
+        tuple(tuple(slot) for slot in slots)
+    )
+    return zone, _split_business_hour_slots_by_weekday(slots)
+
+
+def _as_utc_datetime(value):
+    """Validate an event's source representation and preserve its instant."""
+    if (
+        not isinstance(value, datetime)
+        or value.tzinfo is None
+        or value.utcoffset() is None
+    ):
+        raise ValueError("Scheduled elapsed time requires aware timestamps")
+    if getattr(value, "nanosecond", 0):
+        raise ValueError(
+            "Scheduled elapsed time requires microsecond precision"
+        )
+    instant = value.astimezone(timezone.utc)
+    round_trip = instant.astimezone(value.tzinfo)
+    if (
+        round_trip.replace(tzinfo=None) != value.replace(tzinfo=None)
+        or round_trip.utcoffset() != value.utcoffset()
+    ):
+        raise ValueError("Timestamp does not exist in its source timezone")
+    return instant
+
+
+@lru_cache(maxsize=8192)
+def _business_boundary_candidates(day, offset, zone):
+    """Return possible UTC bounds and valid instants for a local boundary."""
+    wall_time = datetime.combine(day, datetime.min.time()) + timedelta(
+        # A legacy daily-split cache entry can contain a NumPy scalar.
+        microseconds=round(float(offset) * _MICROSECONDS_PER_SECOND)
+    )
+    possible = set()
+    valid = set()
+    for fold in (0, 1):
+        instant = wall_time.replace(tzinfo=zone, fold=fold).astimezone(
+            timezone.utc
+        )
+        possible.add(instant)
+        if instant.astimezone(zone).replace(tzinfo=None) == wall_time:
+            valid.add(instant)
+    return tuple(sorted(possible)), tuple(valid)
+
+
+def _get_scheduled_elapsed_seconds(start, end, daily_slots, zone, calendar):
+    start = _as_utc_datetime(start)
+    end = _as_utc_datetime(end)
+    if end <= start:
+        return 0.0
+
+    total_microseconds = 0
+    # The margin covers local dates on either side of the UTC query dates,
+    # including backward changes to the local date.
+    first = max(date.min.toordinal(), start.toordinal() - 1)
+    last = min(date.max.toordinal(), end.toordinal() + 1)
+    for ordinal in range(first, last + 1):
+        day = date.fromordinal(ordinal)
+        for begin, finish in daily_slots[day.weekday()]:
+            possible_start, valid_start = _business_boundary_candidates(
+                day, begin, zone
+            )
+            if min(possible_start) >= end:
+                continue
+            possible_end, valid_end = _business_boundary_candidates(
+                day, finish, zone
+            )
+            if max(possible_end) <= start:
+                continue
+            if calendar is not None and not calendar.is_working_day(day):
+                continue
+            # ponytail: Daily pieces require unique midnight boundaries too.
+            # Supporting midnight transitions needs transition-based mapping.
+            for candidates in (valid_start, valid_end):
+                if len(candidates) != 1:
+                    kind = "Nonexistent" if not candidates else "Ambiguous"
+                    raise ValueError(
+                        f"{kind} business-hour boundary on {day} in {zone.key}"
+                    )
+            overlap_start = max(start, valid_start[0])
+            overlap_end = min(end, valid_end[0])
+            if overlap_end > overlap_start:
+                duration = overlap_end - overlap_start
+                total_microseconds += duration // timedelta(microseconds=1)
+    return total_microseconds / _MICROSECONDS_PER_SECOND
 
 
 @lru_cache(maxsize=512)
@@ -267,9 +407,10 @@ def soj_time_business_hours_diff(
     et: datetime,
     business_hour_slots: List[Tuple[int]],
     work_calendar=constants.DEFAULT_BUSINESS_HOURS_WORKCALENDAR,
+    business_timezone=None,
 ) -> float:
     """
-    Calculates the difference between the provided timestamps based on business hours.
+    Calculate the difference between timestamps using business hours.
 
     Parameters
     ----------
@@ -278,16 +419,31 @@ def soj_time_business_hours_diff(
     et : datetime
         End timestamp
     business_hour_slots : List[Tuple[int]]
-        Work schedule as list of tuples (start, end) in seconds since week start
+        Weekly (start, end) slots in seconds since Monday 00:00.
     work_calendar
         Calendar exposing ``is_working_day(day)``. Dates rejected by the
         calendar are excluded from the result.
+    business_timezone
+        Optional IANA timezone name. When provided, measure UTC elapsed
+        seconds within the weekly schedule in that timezone. Timestamps
+        must be valid aware datetimes at microsecond precision. Slots are
+        half-open and must fit within one week. Ambiguous or nonexistent
+        schedule boundaries, including split midnights, raise ValueError.
+        Equal or reversed UTC intervals return zero. With None, retain the
+        legacy calculation, which ignores timestamp timezone offsets.
 
     Returns
     -------
     float
         Difference in business hours (seconds)
     """
+    if business_timezone is not None:
+        zone, daily_slots = _prepare_scheduled_business_hours(
+            business_hour_slots, business_timezone
+        )
+        return _get_scheduled_elapsed_seconds(
+            st, et, daily_slots, zone, work_calendar
+        )
     if st.tzinfo is not None:
         st = st.replace(tzinfo=None)
     if et.tzinfo is not None:
