@@ -2,6 +2,7 @@ import datetime
 import os
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 from contextlib import ExitStack
 from unittest import mock
 
@@ -13,6 +14,38 @@ from pm4py.objects.org.sna.obj import SNA
 
 
 class VisualizationFacadeDeepCoverageTest(unittest.TestCase):
+    def test_basic_powl_title_parameters(self):
+        from pm4py.objects.powl.obj import Transition
+        from pm4py.util import constants
+        from pm4py.visualization.powl.variants import basic
+
+        title = 'Review <A&B> "approval"'
+        cases = (
+            (False, {}, []),
+            (True, {"enable_graph_title": False, "graph_title": "Hidden"}, []),
+            (False, {basic.Parameters.ENABLE_GRAPH_TITLE: True}, ["POWL model"]),
+            (False, {"enable_graph_title": True, "graph_title": title}, [title]),
+            (True, {}, ["POWL model"]),
+        )
+        for default_enabled, parameters, expected in cases:
+            with self.subTest(default=default_enabled, parameters=parameters):
+                with mock.patch.object(constants, "DEFAULT_ENABLE_GRAPH_TITLES", default_enabled):
+                    graph = basic.apply(Transition("A"), parameters=parameters)
+                svg = ET.fromstring(graph.pipe(format="svg"))
+                labels = svg.findall("./svg:g/svg:text", {"svg": "http://www.w3.org/2000/svg"})
+                self.assertEqual(expected, ["".join(label.itertext()) for label in labels])
+
+    def test_save_vis_powl_keeps_the_requested_title(self):
+        from pm4py.objects.powl.obj import Transition
+
+        title = 'Review <A&B> "approval"'
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "powl.svg")
+            pm4py.save_vis_powl(Transition("A"), path, graph_title=title)
+            svg = ET.parse(path).getroot()
+        labels = svg.findall("./svg:g/svg:text", {"svg": "http://www.w3.org/2000/svg"})
+        self.assertEqual([title], ["".join(label.itertext()) for label in labels])
+
     @staticmethod
     def _path(*parts):
         return os.path.join(os.path.dirname(__file__), 'input_data', *parts)

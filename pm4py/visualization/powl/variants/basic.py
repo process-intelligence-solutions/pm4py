@@ -22,6 +22,7 @@ Contact: info@processintelligence.solutions
 import importlib.resources
 import tempfile
 from enum import Enum
+from html import escape
 from graphviz import Digraph
 from pm4py.objects.process_tree.obj import Operator
 from pm4py.util import exec_utils, constants
@@ -98,6 +99,12 @@ def apply(powl: POWL, parameters: Optional[Dict[Any, Any]] = None) -> Digraph:
     viz.attr(rankdir=rankdir)
     viz.attr(style="filled")
     viz.attr(fillcolor=bgcolor)
+
+    if enable_graph_title:
+        viz.attr(
+            label='<<FONT POINT-SIZE="20">' + escape(graph_title) + "</FONT>>",
+            labelloc="top",
+        )
 
     color_map = exec_utils.get_param_value(Parameters.COLOR_MAP, {}, {})
 
