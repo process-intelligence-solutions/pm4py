@@ -6,6 +6,7 @@ import importlib.util
 import os
 import pandas
 from pm4py.objects.log.obj import EventLog, Trace
+from pm4py.util import variants_util
 
 
 def execute_script():
@@ -27,14 +28,14 @@ def execute_script():
     # shows the two DFGs to show that they are identical
 
     if importlib.util.find_spec("graphviz"):
-        pm4py.view_dfg(dfg, sa, ea, log=log, format=examples_conf.TARGET_IMG_FORMAT)
+        pm4py.view_dfg(dfg, sa, ea, format=examples_conf.TARGET_IMG_FORMAT)
     new_dfg: dict
     new_sa: dict
     new_ea: dict
     new_dfg, new_sa, new_ea = pm4py.discover_dfg(simulated_log)
 
     if importlib.util.find_spec("graphviz"):
-        pm4py.view_dfg(new_dfg, new_sa, new_ea, log=simulated_log, format=examples_conf.TARGET_IMG_FORMAT)
+        pm4py.view_dfg(new_dfg, new_sa, new_ea, format=examples_conf.TARGET_IMG_FORMAT)
 
     for trace in simulated_log:
         print(list(x["concept:name"] for x in trace))
@@ -44,7 +45,8 @@ def execute_script():
     variants: dict[tuple[str], list[Trace]] | dict[tuple[str], int] = pm4py.get_variants_as_tuples(log)
     sum_prob_log_variants: float = 0.0
     for var in variants:
-        sum_prob_log_variants += dfg_playout.get_trace_probability(variants[var][0], dfg, sa, ea)
+        trace = variants_util.variant_to_trace(var)
+        sum_prob_log_variants += dfg_playout.get_trace_probability(trace, dfg, sa, ea)
     print("percentage of behavior allowed from DFG that is in the log (from 0.0 to 1.0): ", sum_prob_log_variants)
 
 
