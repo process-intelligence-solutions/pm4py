@@ -141,12 +141,13 @@ class TraceMatcher:
         variantsUnderepresentedInQuery = set()
         variantsOverepresentedInQuery = set()
         for variant in self.__trace_variants_log.keys():
-            if len(self.__trace_variants_log[variant]) == len(self.__trace_variants_query.get(variant, set())):
+            log_count = len(self.__trace_variants_log[variant])
+            query_count = len(self.__trace_variants_query.get(variant, ()))
+            if log_count == query_count:
                 variantsWithSameCount.add(variant)
-            elif len(self.__trace_variants_log[variant]) > len(self.__trace_variants_query.get(variant, set())) and len(
-                    self.__trace_variants_query.get(variant, set())) != set():
+            elif log_count > query_count:
                 variantsUnderepresentedInQuery.add(variant)
-            elif len(self.__trace_variants_log[variant]) < len(self.__trace_variants_query.get(variant, 0)):
+            else:
                 variantsOverepresentedInQuery.add(variant)
         self.__handleVariantsWithSameCount(variantsWithSameCount, traceMatching)
         self.__handleVariantsUnderrepresentedInQuery(variantsUnderepresentedInQuery, traceMatching)

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3 -m unittest tests.geneticminer_test
 # Author: Maximilian Josef Frank (https://orcid.org/0000-0002-0714-7748)
 
+import random
 import unittest
 from pm4py import save_vis_petri_net
 from pm4py.algo.discovery.genetic.util import iset
+from pm4py.algo.discovery.genetic.variants.classic import sample_parents
 from pm4py.objects.conversion.genetic_matrix.variants.to_petri_net import apply as matrix2petrinet
 from pm4py.objects.genetic_matrix.obj import GeneticMatrix
 from pm4py.objects.petri_net.obj import PetriNet
@@ -11,6 +13,21 @@ from pm4py.objects.petri_net import utils
 
 
 class TestGeneticMiner(unittest.TestCase):
+        def test_sample_parents_with_duplicate_individuals(self):
+                self.addCleanup(random.setstate, random.getstate())
+                duplicates = [({"A": []}, {"A": []}) for _ in range(3)]
+                alternative = ({"B": []}, {"B": []})
+
+                first, second = sample_parents(
+                        duplicates + [alternative], [0.9, 0.9, 0.9, 0.5], 3
+                )
+                self.assertEqual(first, duplicates[0])
+                self.assertIs(second, alternative)
+
+                first, second = sample_parents(duplicates, [0.9] * 3, 2)
+                self.assertEqual(first, second)
+                self.assertIsNot(first, second)
+
         def test_matrix2petrinet_or(self):
                 I = {
                         "A": [],

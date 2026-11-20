@@ -45,6 +45,7 @@ dependencies = [
 [project.optional-dependencies]
 calendars = ["workalendar"]
 connectors = ["requests"]
+drift = ["hdbscan>=0.8.39", "river>=0.21"]
 llm = ["openai", "requests"]
 ml = ["pyemd", "scikit-learn"]
 ocel = ["jsonschema", "pyarrow"]
@@ -78,7 +79,7 @@ windows = [
     "pywin32; sys_platform == 'win32'",
 ]
 all = [
-    "pm4py[calendars,connectors,llm,ml,ocel,polars,visualization,windows]",
+    "pm4py[calendars,connectors,drift,llm,ml,ocel,polars,visualization,windows]",
 ]
 
 [project.urls]

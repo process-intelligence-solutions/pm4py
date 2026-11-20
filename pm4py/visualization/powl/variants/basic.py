@@ -22,7 +22,7 @@ Contact: info@processintelligence.solutions
 import importlib.resources
 import tempfile
 from enum import Enum
-from graphviz import Digraph
+from graphviz import Digraph, escape
 from pm4py.objects.process_tree.obj import Operator
 from pm4py.util import exec_utils, constants
 from typing import Optional, Dict, Any
@@ -102,6 +102,8 @@ def apply(powl: POWL, parameters: Optional[Dict[Any, Any]] = None) -> Digraph:
     color_map = exec_utils.get_param_value(Parameters.COLOR_MAP, {}, {})
 
     repr_powl(powl, viz, color_map, level=0, base_color=bgcolor)
+    if enable_graph_title:
+        viz.attr(label=escape(graph_title), labelloc="t", fontsize="20")
     viz.format = "svg"
 
     return viz

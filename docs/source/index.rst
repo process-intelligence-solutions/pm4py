@@ -121,5 +121,6 @@ Happy #ProcessMining!
    :maxdepth: 2
 
    getting_started_index
+   concept_drift
    api
    release_notes

@@ -262,21 +262,21 @@ def tournament(
     return (population, fitness)
 
 def sample_parents(population: List[Individual], fitness: List[float], elitism_min_sample: int):
-    population_fitness = tuple(zip(population, fitness))
-    parent1 = sorted(
-        random.sample(population_fitness, k=elitism_min_sample),
-        key=lambda obj: obj[1],
-        reverse=True
-    )[0][0]
-    parent2 = sorted(
-        random.sample(
-            [(i,f) for i,f in population_fitness if i!=parent1],
-            k=elitism_min_sample
-        ),
-        key=lambda obj: obj[1],
-        reverse=True
-    )[0][0]
-    return (parent1, parent2)
+    remaining = list(range(len(population)))
+    first_index = max(
+        random.sample(remaining, k=elitism_min_sample), key=fitness.__getitem__
+    )
+    remaining.remove(first_index)
+    parent1 = population[first_index]
+
+    # Prefer a different structure, even when there are too few for a full tournament.
+    distinct = [index for index in remaining if population[index] != parent1]
+    candidates = distinct or remaining
+    second_index = max(
+        random.sample(candidates, k=min(elitism_min_sample, len(candidates))),
+        key=fitness.__getitem__,
+    )
+    return parent1, population[second_index]
 
 def crossover(parent1: Individual, parent2: Individual, T: List[str]) -> Tuple[Individual, Individual]:
     # @src 6.3. Genetic Operations: Crossover; https://doi.org/10.1007/11494744_5
