@@ -51,6 +51,21 @@ def _alignment_fitness(activities, model):
     return float(diagnostics["fitness"])
 
 
+def _reference_model(parameters):
+    model = _common.parameter(parameters, Parameters.REFERENCE_MODEL, None)
+    if model is not None and (
+        not isinstance(model, tuple)
+        or len(model) != 3
+        or not isinstance(model[0], PetriNet)
+        or not isinstance(model[1], Marking)
+        or not isinstance(model[2], Marking)
+    ):
+        raise ValueError(
+            "reference_model must be a (PetriNet, initial Marking, final Marking) tuple"
+        )
+    return model
+
+
 def apply(log, parameters=None):
     """Monitor Petri-net alignment fitness with Page–Hinkley or ADWIN.
 
@@ -78,7 +93,7 @@ def apply(log, parameters=None):
     """
     get = _common.parameter
     method = get(parameters, Parameters.METHOD, "page_hinkley")
-    model = get(parameters, Parameters.REFERENCE_MODEL, None)
+    model = _reference_model(parameters)
     reference_size = _common.integer(
         get(parameters, Parameters.REFERENCE_SIZE, 30), "reference_size"
     )
@@ -88,17 +103,6 @@ def apply(log, parameters=None):
         raise ValueError("model_policy must be 'fixed' or 'on_alarm'")
     if update_window is not None:
         update_window = _common.integer(update_window, "update_window")
-    if model is not None and (
-        not isinstance(model, tuple)
-        or len(model) != 3
-        or not isinstance(model[0], PetriNet)
-        or not isinstance(model[1], Marking)
-        or not isinstance(model[2], Marking)
-    ):
-        raise ValueError(
-            "reference_model must be a (PetriNet, initial Marking, final Marking) tuple"
-        )
-
     detector_settings = _timeseries.detector_settings(method, parameters)
     traces = _common.completed_traces(log, parameters)
     reference_models = []

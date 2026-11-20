@@ -22,9 +22,10 @@ directly-follows relations stays the same.
 Inputs and results
 ------------------
 
-The new variants accept a pandas DataFrame or legacy EventLog with complete
-cases. DataFrame columns default to ``case:concept:name``, ``concept:name``,
-and ``time:timestamp``. To override them, pass ``case_id_key``,
+Trace-based variants accept a pandas DataFrame or legacy EventLog with
+complete cases. Event-level monitoring can use partial cases in a
+DataFrame or EventStream. DataFrame columns default to ``case:concept:name``,
+``concept:name``, and ``time:timestamp``. To override them, pass ``case_id_key``,
 ``activity_key``, or ``timestamp_key`` in the parameters. DataFrame case
 attributes use the ``case:`` prefix. Timestamps are converted to UTC, with
 naive timestamps interpreted as UTC. Events with the same timestamp retain
@@ -73,7 +74,7 @@ Each variant's ``apply`` docstring describes its parameters.
   The alarm records when the first positive test occurred and when persistence
   confirmed it. The original reference and detection window boundary is
   also recorded.
-  `Detecting Drift from Event Streams <https://pure.tue.nl/ws/files/53839334/chp_10.1007_978_3_319_46397_1_26.pdf>`_.
+  `Detecting Drift from Event Streams <https://doi.org/10.1007/978-3-319-46397-1_26>`_.
 * **Structural stability.** ``LCDD`` follows the fixed-window form of
   `Local Completeness-based Drift Detection <https://doi.org/10.1109/TSC.2020.3032787>`_.
   The first window is assumed locally complete. Added relations can be
@@ -83,11 +84,18 @@ Each variant's ``apply`` docstring describes its parameters.
   and eventually-follows relation histories. It operates retrospectively
   and can expose long-range ordering changes.
   `Relation Invariance <https://doi.org/10.1007/978-3-319-69462-7_33>`_.
+  ``GRAPH_METRICS`` compares topology across completed-trace DFG blocks
+  with PELT. Connectivity, branching, cycles, and self-loop traffic can
+  expose structural shifts. These summaries ignore activity names.
+  `Process Drift Detection Using Model-Based Graph Metrics <https://doi.org/10.1145/3040565.3040566>`_.
 * **Execution distributions.** ``RUN_DISTRIBUTION`` adapts
   `run-based ProDrift <https://doi.org/10.1109/TKDE.2017.2720601>`_ using
   window-local concurrency and a chi-square test. It supports bounded
   adaptive windows and an optional retrospective mixture check for gradual
-  intervals. ``EARTH_MOVER`` compares stochastic trace languages with
+  intervals. ``TRACE_VARIANT_FREQUENCY`` compares exact activity
+  sequences with Jensen–Shannon distance and whole-trace or block
+  permutations. It preserves the observed order of concurrent activities.
+  ``EARTH_MOVER`` compares stochastic trace languages with
   normalized edit cost. Set ``time_feature`` to ``"inter_event"`` for gaps
   between event completions or ``"service"`` for elapsed time between an
   event's start and completion. The time-aware adaptation fits per-activity
@@ -114,19 +122,32 @@ Each variant's ``apply`` docstring describes its parameters.
   or discovers one with Inductive Miner. The reference can stay fixed or be
   relearned from available traces after an alarm. Results record the model
   and training range for each version. Fitness can stay high when valid
-  behavior disappears.
+  behavior disappears. ``CONFORMANCE_PROFILE`` adds escaping-edge
+  precision and segments both metrics jointly with PELT against a fixed
+  Petri net. It can detect a path disappearing from the log even if all
+  observed traces continue to fit.
+  `CRIER <https://doi.org/10.1145/3716169>`_.
 * **Declarative profiles.** ``DECLARE_PROFILES`` is a VDD adaptation that
   applies kernel PELT to window statistics for a fixed Declare constraint
   bank. For example, pass ``constraints=[("response", "A", "B")]``. Each
   activated trace counts once. The default confidence divides activated and
   satisfied traces by the window size. Support and violation rate divide
-  by activated traces. Windows without activations yield zero.
+  by activated traces. A window without activations gives confidence
+  zero. For support and violation rate, PELT uses zero and the sequential
+  modes skip that rule's window. Select ``method="adwin"`` or
+  ``method="page_hinkley"`` with explicit constraints to monitor each rule
+  as windows close. ADWIN estimates the start of the retained window,
+  which can precede the actual transition.
   `Visual Drift Detection <https://arxiv.org/abs/1907.06386>`_.
 * **Version discovery.** ``VERSION_CLUSTERING`` uses start-ordered DFG
   windows, cosine similarity, HDBSCAN soft memberships, and penalized RBF
   kernel segmentation. It operates on the full log. Version labels are
   comparable within a run, including when a version recurs.
   `Version Clustering <https://doi.org/10.1007/978-3-032-28110-4_4>`_.
+  ``CLUSTER_FREQUENCY`` fits K-means on the first completed traces and
+  monitors subsequent changes in cluster shares. The vocabulary and
+  cluster IDs stay fixed. Cluster 0 collects unfamiliar profiles and
+  optional distance-based outliers.
 * **Joint features.** ``MULTIVARIATE`` adapts RBF Maximum Mean Discrepancy
   and energy distance to process observations. It can detect joint changes
   with unchanged marginals. Select ``features=["activity_resource"]`` to
@@ -149,8 +170,8 @@ Each variant's ``apply`` docstring describes its parameters.
 Calibration and dependencies
 ----------------------------
 
-DFG frequency and multivariate tests use configurable per-window
-significance, minimum effect, persistence, and alarm separation. By default
+DFG frequency, trace-variant frequency, cluster frequency, and
+multivariate tests use configurable per-window significance, minimum effect, persistence, and alarm separation. By default
 permutations exchange whole traces or whole rows. Set
 ``permutation_block_size`` to exchange contiguous blocks when that is a
 better approximation for the observation dependence. A nominal per-window
@@ -160,5 +181,6 @@ adding features increases the number of opportunities for an alarm. Use
 stationary data representative of the process to calibrate alarm settings.
 
 Install ``pm4py[drift]`` to use River ADWIN and HDBSCAN for Version Clustering.
-The supervised patch classifier uses scikit-learn from ``pm4py[ml]``.
+Cluster frequency and the supervised patch classifier use scikit-learn
+from ``pm4py[ml]``.
 Base PM4Py can construct images and use a supplied predictor.
