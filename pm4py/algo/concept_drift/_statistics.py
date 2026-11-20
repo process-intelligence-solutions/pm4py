@@ -1,6 +1,7 @@
-"""Permutation calibration shared by two-sample drift detectors."""
+"""Statistics shared by two-sample drift detectors."""
 
 import numpy as np
+from scipy.spatial.distance import jensenshannon
 
 from pm4py.algo.concept_drift import _common
 
@@ -29,3 +30,46 @@ def permutation_p_value(statistic, observed, size, permutations, block_size, rng
         if value >= observed or np.isclose(value, observed, rtol=1e-12, atol=1e-15):
             extreme += 1
     return (extreme + 1) / (permutations + 1)
+
+
+def frequency_distance(left, right):
+    """Jensen–Shannon distance between nonempty count distributions."""
+    if not left.any() or not right.any():
+        return 0.0
+    return float(jensenshannon(left, right, base=2))
+
+
+def changed_proportions(keys, table, limit=5):
+    """Largest signed changes in category proportions from left to right."""
+    totals = table.sum(axis=1)
+    if not totals.all():
+        return {}
+    proportions = table / totals[:, None]
+    changes = proportions[1] - proportions[0]
+    strongest = np.argsort(-np.abs(changes), kind="stable")[:limit]
+    return {keys[i]: float(changes[i]) for i in strongest if changes[i]}
+
+
+def categorical_window_test(labels, size, permutations, block_size, rng):
+    """Compare two windows with one categorical observation per row."""
+    categories = {}
+    codes = np.array(
+        [categories.setdefault(label, len(categories)) for label in labels], dtype=int
+    )
+
+    def counts(indices):
+        return np.bincount(codes[indices], minlength=len(categories))
+
+    table = np.stack([counts(slice(None, size)), counts(slice(size, None))])
+    distance = frequency_distance(*table)
+    p_value = 1.0
+    if distance > 0:
+        p_value = permutation_p_value(
+            lambda left, right: frequency_distance(counts(left), counts(right)),
+            distance,
+            size,
+            permutations,
+            block_size,
+            rng,
+        )
+    return distance, p_value, changed_proportions(list(categories), table)

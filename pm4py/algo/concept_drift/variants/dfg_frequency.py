@@ -3,7 +3,6 @@
 from collections import Counter
 
 import numpy as np
-from scipy.spatial.distance import jensenshannon
 from scipy.stats import chi2_contingency
 
 from pm4py.algo.concept_drift import _common, _statistics
@@ -61,7 +60,7 @@ def apply(log, parameters=None):
         left_counts = sum(rows[:size], Counter())
         right_counts = sum(rows[size:], Counter())
         keys, table = _common.count_vectors([left_counts, right_counts])
-        distance = _distance(*table)
+        distance = _statistics.frequency_distance(*table)
         p_value = 1.0
         if distance > 0:
             if test == "g_test":
@@ -74,7 +73,7 @@ def apply(log, parameters=None):
                 _, vectors = _common.count_vectors(rows)
 
                 def statistic(left, right, vectors=vectors):
-                    return _distance(
+                    return _statistics.frequency_distance(
                         vectors[left].sum(axis=0), vectors[right].sum(axis=0)
                     )
 
@@ -88,7 +87,9 @@ def apply(log, parameters=None):
                 timestamp=traces[boundary].end,
                 available_at=traces[-1 if retrospective else stop - 1].end,
                 p_value=p_value,
-                details={"changed_relations": _largest_changes(keys, table)},
+                details={
+                    "changed_relations": _statistics.changed_proportions(keys, table)
+                },
             )
         )
     changes = _common.consolidate(
@@ -116,20 +117,3 @@ def apply(log, parameters=None):
             **permutation_metadata,
         },
     )
-
-
-def _distance(left, right):
-    # A window with no edges has no conditional edge distribution.
-    if not left.any() or not right.any():
-        return 0.0
-    return float(jensenshannon(left, right, base=2))
-
-
-def _largest_changes(keys, table):
-    totals = table.sum(axis=1)
-    if not totals.all():
-        return {}
-    proportions = table / totals[:, None]
-    changes = proportions[1] - proportions[0]
-    strongest = np.argsort(-np.abs(changes), kind="stable")[:5]
-    return {keys[i]: float(changes[i]) for i in strongest if changes[i]}

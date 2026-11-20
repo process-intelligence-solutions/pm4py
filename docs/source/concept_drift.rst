@@ -35,8 +35,9 @@ The new variants return a
 
 * ``observation_unit`` and zero-based ``index`` values identify the analysis
   axis. Trace indices normally follow case completion order. Version
-  Clustering and supervised similarity use first-event order. Calendar
-  indices count bins from the first bin in the analysis.
+  Clustering, relation invariance, and supervised similarity use first-event
+  order. Calendar indices count bins from the first bin in the analysis.
+  Event relation indices count events in timestamp order.
 * ``scores`` contains evidence at tested boundaries or observations.
   Variants that perform significance tests also report p-values.
 * ``changes`` records estimated boundaries and their ``timestamp`` and
@@ -64,11 +65,24 @@ Each variant's ``apply`` docstring describes its parameters.
   trace-level permutation test or a likelihood-ratio G-test. Both windows
   need edges to estimate their conditional edge frequencies. Set
   ``retrospective=False`` for sequential confirmation.
+  ``EVENT_RELATIONS`` adapts the event-stream method of Ostovar et al.
+  It compares alpha-plus relation counts with a G-test and can detect a
+  change while cases are still running. Pass a DataFrame or EventStream
+  for replay, or call ``event_relations.EventStreamDetector.update`` for
+  incremental monitoring. Adaptive width is bounded by the observed history.
+  The alarm records when the first positive test occurred and when persistence
+  confirmed it. The original reference and detection window boundary is
+  also recorded.
+  `Detecting Drift from Event Streams <https://pure.tue.nl/ws/files/53839334/chp_10.1007_978_3_319_46397_1_26.pdf>`_.
 * **Structural stability.** ``LCDD`` follows the fixed-window form of
   `Local Completeness-based Drift Detection <https://doi.org/10.1109/TSC.2020.3032787>`_.
   The first window is assumed locally complete. Added relations can be
   reported immediately, while disappearance must persist through a detection
   window. The method rebuilds the reference after each alarm.
+  ``RELATION_INVARIANCE`` groups nearby boundaries of stable directly-
+  and eventually-follows relation histories. It operates retrospectively
+  and can expose long-range ordering changes.
+  `Relation Invariance <https://doi.org/10.1007/978-3-319-69462-7_33>`_.
 * **Execution distributions.** ``RUN_DISTRIBUTION`` adapts
   `run-based ProDrift <https://doi.org/10.1109/TKDE.2017.2720601>`_ using
   window-local concurrency and a chi-square test. It supports bounded
@@ -90,6 +104,11 @@ Each variant's ``apply`` docstring describes its parameters.
   monitoring uses bins closed by the last event timestamp. Set
   ``observation_end`` to use a known later cutoff, including recorded empty
   bins. Retrospective extraction includes the final bin by default.
+  ``CV_INDICATORS`` uses the same calendar features and selects a centered
+  rolling window separately for each indicator from its coefficient of
+  variation curve. It then runs retrospective PELT on each smoothed series.
+  The results include the candidate CVs and chosen widths.
+  `CVDrift <https://doi.org/10.1007/978-3-032-37877-4_11>`_.
 * **Conformance.** ``CONFORMANCE`` is a FAIRY-inspired detector that monitors
   trace alignment fitness with Page–Hinkley or ADWIN. It accepts a Petri net
   or discovers one with Inductive Miner. The reference can stay fixed or be

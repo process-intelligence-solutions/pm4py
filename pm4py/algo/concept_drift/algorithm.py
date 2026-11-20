@@ -9,27 +9,33 @@ from pm4py.algo.concept_drift.result import DriftResult
 from pm4py.algo.concept_drift.variants import (
     bose,
     conformance,
+    cv_indicators,
     declare_profiles,
     dfg_frequency,
     earth_mover,
+    event_relations,
     indicators,
     lcdd,
     multivariate,
+    relation_invariance,
     run_distribution,
     supervised_similarity,
     version_clustering,
 )
-from pm4py.objects.log.obj import EventLog
+from pm4py.objects.log.obj import EventLog, EventStream
 from pm4py.util import exec_utils
 
 
 class Variants(Enum):
     BOSE = bose
     DFG_FREQUENCY = dfg_frequency
+    EVENT_RELATIONS = event_relations
     LCDD = lcdd
+    RELATION_INVARIANCE = relation_invariance
     RUN_DISTRIBUTION = run_distribution
     EARTH_MOVER = earth_mover
     INDICATORS = indicators
+    CV_INDICATORS = cv_indicators
     CONFORMANCE = conformance
     DECLARE_PROFILES = declare_profiles
     VERSION_CLUSTERING = version_clustering
@@ -38,12 +44,13 @@ class Variants(Enum):
 
 
 def apply(
-    log: EventLog | pd.DataFrame,
+    log: EventLog | EventStream | pd.DataFrame,
     variant=Variants.BOSE,
     parameters: dict[Any, Any] | None = None,
 ) -> DriftResult | tuple[list, list[float], list[float]]:
     """Detect concept drift in an EventLog or pandas DataFrame.
 
+    The event-relations variant also accepts an EventStream.
     Pass detector-specific options in ``parameters``. The default ``BOSE``
     preserves its original tuple of sublogs, Unix timestamps and p-values.
     Other variants return a :class:`~pm4py.algo.concept_drift.result.DriftResult`
