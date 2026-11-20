@@ -1,9 +1,13 @@
+from enum import Enum
+from itertools import pairwise
+from typing import Any
+
 import numpy as np
 import pandas as pd
-from enum import Enum
-from typing import Union, Optional, Dict, Any, List, Tuple
+
+from pm4py.algo.concept_drift import _common
 from pm4py.objects.log.obj import EventLog
-from pm4py.util import exec_utils, constants, xes_constants
+from pm4py.util import constants, exec_utils, xes_constants
 
 
 class Parameters(Enum):
@@ -12,13 +16,15 @@ class Parameters(Enum):
     NUM_PERMUTATIONS = "num_permutations"
     THRESH_P_VALUE = "thresh_p_value"
     MAX_NO_CHANGE_POINTS = "max_no_change_points"
+    RANDOM_STATE = "random_state"
     ACTIVITY_KEY = constants.PARAMETER_CONSTANT_ACTIVITY_KEY
     TIMESTAMP_KEY = constants.PARAMETER_CONSTANT_TIMESTAMP_KEY
     CASE_ID_KEY = constants.PARAMETER_CONSTANT_CASEID_KEY
 
 
-def apply(log: Union[EventLog, pd.DataFrame], parameters: Optional[Dict[Any, Any]] = None) -> Tuple[
-    List[pd.DataFrame], List[int], List[float]]:
+def apply(
+    log: EventLog | pd.DataFrame, parameters: dict[Any, Any] | None = None
+) -> tuple[list[pd.DataFrame], list[float], list[float]]:
     """
     Apply concept drift detection to an event log, based on the approach described in:
 
@@ -38,14 +44,15 @@ def apply(log: Union[EventLog, pd.DataFrame], parameters: Optional[Dict[Any, Any
         - `Parameters.NUM_PERMUTATIONS` : int, default=100 Number of permutations for the permutation test.
         - `Parameters.THRESH_P_VALUE` : float, default=0.5 Threshold for p-values to consider a change point significant (lower values indicate stronger evidence of drift).
         - `Parameters.MAX_NO_CHANGE_POINTS` : int, default=5 Maximum number of change points to detect.
+        - `Parameters.RANDOM_STATE` : int, optional Seed for reproducible permutations.
         - `Parameters.ACTIVITY_KEY` : str, default='concept:name' Key to identify the activity attribute in the event log.
         - `Parameters.TIMESTAMP_KEY` : str, default='time:timestamp' Key to identify the timestamp attribute in the event log.
         - `Parameters.CASE_ID_KEY` : str, default='case:concept:name' Key to identify the case ID attribute in the event log.
 
     **Returns**
     ------------
-    returned_sublogs : List[EventLog]
-        A list of sub-logs, where each sub-log is an EventLog object representing the cumulative segment of the original event log from the start up to each detected change point (and the final sub-log up to the end). Note: Due to a potential implementation issue, these sub-logs are not segments between change points but rather cumulative logs up to each change point.
+    returned_sublogs : List[pd.DataFrame]
+        Consecutive disjoint segments of the original log, with cases in first-event order.
     change_timestamps : List[float]
         A list of timestamps where concept drifts are detected. Each timestamp corresponds to the start time of the first trace in the sub-log where a change point occurs, based on case start timestamps.
     p_values : List[float]
@@ -59,46 +66,67 @@ def apply(log: Union[EventLog, pd.DataFrame], parameters: Optional[Dict[Any, Any
     if parameters is None:
         parameters = {}
 
-    import pm4py
-
     sub_log_size = exec_utils.get_param_value(Parameters.SUB_LOG_SIZE, parameters, 50)
     window_size = exec_utils.get_param_value(Parameters.WINDOW_SIZE, parameters, 8)
-    num_permutations = exec_utils.get_param_value(Parameters.NUM_PERMUTATIONS, parameters, 100)
-    thresh_p_value = exec_utils.get_param_value(Parameters.THRESH_P_VALUE, parameters, 0.5)
-    max_no_change_points = exec_utils.get_param_value(Parameters.MAX_NO_CHANGE_POINTS, parameters, 5)
-    activity_key = exec_utils.get_param_value(Parameters.ACTIVITY_KEY, parameters, xes_constants.DEFAULT_NAME_KEY)
-    timestamp_key = exec_utils.get_param_value(Parameters.TIMESTAMP_KEY, parameters,
-                                               xes_constants.DEFAULT_TIMESTAMP_KEY)
-    case_id_key = exec_utils.get_param_value(Parameters.CASE_ID_KEY, parameters, constants.CASE_CONCEPT_NAME)
+    num_permutations = exec_utils.get_param_value(
+        Parameters.NUM_PERMUTATIONS, parameters, 100
+    )
+    thresh_p_value = exec_utils.get_param_value(
+        Parameters.THRESH_P_VALUE, parameters, 0.5
+    )
+    max_no_change_points = exec_utils.get_param_value(
+        Parameters.MAX_NO_CHANGE_POINTS, parameters, 5
+    )
+    random_state = exec_utils.get_param_value(Parameters.RANDOM_STATE, parameters, None)
+    traces = sorted(
+        _common.completed_traces(log, parameters), key=lambda trace: trace.start
+    )
+    _, change_points = detect_concept_drift(
+        [trace.activities for trace in traces],
+        sub_log_size=sub_log_size,
+        window_size=window_size,
+        num_permutations=num_permutations,
+        thresh_p_value=thresh_p_value,
+        max_no_change_points=max_no_change_points,
+        random_state=random_state,
+    )
+    if not traces:
+        return [], [], []
 
-    if isinstance(log, pd.DataFrame):
-        case_start_timestamps = log.groupby(case_id_key).first()[timestamp_key].to_list()
-        case_start_timestamps = [x.timestamp() for x in case_start_timestamps]
-    else:
-        case_start_timestamps = [c[0][timestamp_key].timestamp() for c in log]
-
-    sub_logs, change_points = detect_concept_drift(pm4py.project_on_event_attribute(log, activity_key),
-                                                   sub_log_size=sub_log_size, window_size=window_size,
-                                                   num_permutations=num_permutations, thresh_p_value=thresh_p_value,
-                                                   max_no_change_points=max_no_change_points)
-
-    change_indexes = [x[0] for x in change_points]
-    change_timestamps = [case_start_timestamps[x[0] * sub_log_size] for x in change_points]
-    p_values = [x[1] for x in change_points]
-
-    curr = []
-    returned_sublogs = []
-    i = 0
-    while i < len(sub_logs):
-        curr = curr + [",".join(x) for x in sub_logs[i]]
-        if i+1 in change_indexes or i == len(sub_logs) - 1:
-            if curr:
-                returned_sublogs.append(pm4py.parse_event_log_string(curr))
-                curr = None
-                curr = []
-        i = i + 1
+    boundaries = [index * sub_log_size for index, _ in change_points]
+    change_timestamps = [traces[index].start.timestamp() for index in boundaries]
+    p_values = [p_value for _, p_value in change_points]
+    case_id_key = _common.attribute_key(
+        parameters, "case_id_key", constants.CASE_CONCEPT_NAME
+    )
+    returned_sublogs = [
+        _segment_to_dataframe(log, traces, start, stop, case_id_key)
+        for start, stop in pairwise([0, *sorted(boundaries), len(traces)])
+    ]
 
     return returned_sublogs, change_timestamps, p_values
+
+
+def _segment_to_dataframe(log, traces, start, stop, case_id_key):
+    if isinstance(log, pd.DataFrame):
+        frame = pd.DataFrame.from_records(
+            (event for trace in traces[start:stop] for event in trace.events),
+            columns=log.columns,
+        )
+        frame.attrs = log.attrs
+        return frame
+
+    rows = []
+    for index, trace in enumerate(traces[start:stop], start=start):
+        case_attributes = {
+            constants.CASE_ATTRIBUTE_PREFIX + key: value
+            for key, value in trace.attributes.items()
+        }
+        case_attributes[case_id_key] = trace.attributes.get(
+            xes_constants.DEFAULT_TRACEID_KEY, str(index)
+        )
+        rows.extend(dict(event) | case_attributes for event in trace.events)
+    return pd.DataFrame.from_records(rows)
 
 
 def extract_unique_activities(event_log):
@@ -107,7 +135,7 @@ def extract_unique_activities(event_log):
     for trace in event_log:
         for activity in trace:
             all_activities.add(activity)
-    return sorted(list(all_activities))
+    return sorted(all_activities)
 
 
 def split_into_sub_logs(event_log, sub_log_size=50, keep_leftover=True):
@@ -117,11 +145,11 @@ def split_into_sub_logs(event_log, sub_log_size=50, keep_leftover=True):
     """
     s = sub_log_size
     k = len(event_log) // s  # how many full-size sublogs we can get
-    sub_logs = [event_log[i * s: (i + 1) * s] for i in range(k)]
+    sub_logs = [event_log[i * s : (i + 1) * s] for i in range(k)]
     if keep_leftover:
         remainder = len(event_log) % s
         if remainder > 0:
-            sub_logs.append(event_log[k * s: k * s + remainder])
+            sub_logs.append(event_log[k * s : k * s + remainder])
     return sub_logs
 
 
@@ -161,11 +189,9 @@ def extract_global_features(sub_log, Sigma):
     """
     Extract the Relation Type Count (RC) feature vector for a sub-log.
 
-    For each activity b in Sigma, we compute:
-
-     - ca = # of activities a where b ALWAYS follows a (in all traces that contain 'a')
-     - cs = # of activities a where b SOMETIMES follows a
-     - cn = # of activities a where b NEVER follows a
+    For each activity a in Sigma, count the activities that always,
+    sometimes, or never follow a. The denominator is the number of traces
+    containing a. A later occurrence of a can follow an earlier one.
     """
     # Count how many traces contain each activity 'a'
     n_a = {a: 0 for a in Sigma}
@@ -180,35 +206,22 @@ def extract_global_features(sub_log, Sigma):
 
         # which follows-relations appear in this trace?
         follows_in_trace = compute_follows_relation(trace, Sigma)
-        for (a, b) in follows_in_trace:
+        for a, b in follows_in_trace:
             n_a_then_b[a][b] += 1
 
     # Build the RC feature vector
     fRC = []
-    for b in Sigma:
-        ca = 0  # # of 'a' with b always follows a
-        cs = 0  # # of 'a' with b sometimes follows a
-        cn = 0  # # of 'a' with b never follows a
-        for a in Sigma:
-            if n_a[a] == 0:
-                # 'a' does not appear in any trace => skip or count as "never"?
-                # The original code lumps them under 'never'.
-                cn += 1
-            else:
-                # check how many times we have a->b out of all traces that have 'a'
-                if n_a_then_b[a][b] == n_a[a]:
-                    ca += 1
-                elif n_a_then_b[a][b] > 0:
-                    cs += 1
-                else:
-                    cn += 1
-        # each activity 'b' extends the feature vector by [ca, cs, cn]
-        fRC.extend([ca, cs, cn])
+    for a in Sigma:
+        counts = n_a_then_b[a].values()
+        always = sum(0 < count == n_a[a] for count in counts)
+        sometimes = sum(0 < count < n_a[a] for count in counts)
+        never = len(Sigma) - always - sometimes
+        fRC.extend((always, sometimes, never))
 
     return np.array(fRC, dtype=float)
 
 
-def permutation_test(P1, P2, num_permutations=100):
+def permutation_test(P1, P2, num_permutations=100, rng=None):
     """
     Perform a permutation test to compare the Euclidean distance
     between means of two sets of feature vectors P1 and P2.
@@ -223,10 +236,12 @@ def permutation_test(P1, P2, num_permutations=100):
     all_data = np.vstack((P1, P2))
     n1 = len(P1)
 
+    if rng is None:
+        rng = np.random
     count = 0
     for _ in range(num_permutations):
         # A more explicit way:
-        perm_indices = np.random.permutation(len(all_data))
+        perm_indices = rng.permutation(len(all_data))
         perm_data = all_data[perm_indices]
 
         perm_P1 = perm_data[:n1]
@@ -236,19 +251,22 @@ def permutation_test(P1, P2, num_permutations=100):
         mean_perm_P2 = np.mean(perm_P2, axis=0)
         d_perm = np.linalg.norm(mean_perm_P1 - mean_perm_P2)
 
-        if d_perm >= d_obs:
+        if d_perm >= d_obs or np.isclose(d_perm, d_obs, rtol=1e-12, atol=1e-15):
             count += 1
 
-    p_value = count / num_permutations
+    p_value = (count + 1) / (num_permutations + 1)
     return p_value
 
 
-def detect_concept_drift(event_log,
-                         sub_log_size=50,
-                         window_size=8,
-                         num_permutations=100,
-                         thresh_p_value=0.5,
-                         max_no_change_points=5):
+def detect_concept_drift(
+    event_log,
+    sub_log_size=50,
+    window_size=8,
+    num_permutations=100,
+    thresh_p_value=0.5,
+    max_no_change_points=5,
+    random_state=None,
+):
     """
     Detect concept drift in an event log using a permutation test
     over consecutive windows of sub-logs.
@@ -260,36 +278,52 @@ def detect_concept_drift(event_log,
     - num_permutations: Number of permutations for the statistical test (default: 100).
     - thresh_p_value: Threshold for the p-value
     - max_no_change_points: Maximum number of change points detected
+    - random_state: Seed for reproducible permutations
 
     Returns:
     - sub_logs: list of sub-logs, each with (up to) sub_log_size traces
     - change_points: list of sub-log indices and p-values where drift is detected
     """
+    sub_log_size = _common.integer(sub_log_size, "sub_log_size")
+    window_size = _common.integer(window_size, "window_size")
+    num_permutations = _common.integer(num_permutations, "num_permutations")
+    thresh_p_value = _common.real(thresh_p_value, "thresh_p_value", 0, 1)
+    max_no_change_points = _common.integer(
+        max_no_change_points, "max_no_change_points", minimum=0
+    )
+    rng = np.random.default_rng(random_state) if random_state is not None else None
+
     # 1) Extract unique activities
     Sigma = extract_unique_activities(event_log)
 
     # 2) Split event log into sub-logs
-    sub_logs = split_into_sub_logs(event_log, sub_log_size=sub_log_size, keep_leftover=True)
+    sub_logs = split_into_sub_logs(
+        event_log, sub_log_size=sub_log_size, keep_leftover=True
+    )
 
-    # 3) Compute RC feature vectors for each sub-log
-    feature_vectors = [extract_global_features(slog, Sigma) for slog in sub_logs]
+    # Only equal-sized sub-logs are exchangeable under the permutation test.
+    feature_vectors = [
+        extract_global_features(slog, Sigma)
+        for slog in sub_logs
+        if len(slog) == sub_log_size
+    ]
 
     # 4) Perform permutation tests in a sliding-window fashion
-    k = len(sub_logs)
+    k = len(feature_vectors)
     p_values = []
 
     # We need at least 2*window_size sub-logs for a valid test
     # because we compare P1= sublogs[i : i+window_size] vs P2= sublogs[i+window_size : i+2*window_size]
     for i in range(k - 2 * window_size + 1):
-        P1 = feature_vectors[i: i + window_size]
-        P2 = feature_vectors[i + window_size: i + 2 * window_size]
+        P1 = feature_vectors[i : i + window_size]
+        P2 = feature_vectors[i + window_size : i + 2 * window_size]
 
-        p_value = permutation_test(P1, P2, num_permutations=num_permutations)
+        p_value = permutation_test(P1, P2, num_permutations=num_permutations, rng=rng)
         p_values.append((i + window_size, p_value))
 
     # 5) Identify change points where p-value < threshold
     change_points = sorted(p_values, key=lambda x: (x[1], x[0]))
     change_points = [x for x in change_points if x[1] < thresh_p_value]
-    change_points = change_points[:min(len(change_points), max_no_change_points)]
+    change_points = change_points[: min(len(change_points), max_no_change_points)]
 
     return sub_logs, change_points
