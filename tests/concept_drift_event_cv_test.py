@@ -162,3 +162,20 @@ class CvIndicatorTest(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "candidate_windows"):
             cv_indicators.apply(pd.DataFrame(), {"candidate_windows": []})
+
+    def test_large_case_values_do_not_hide_a_finite_mean_shift(self):
+        log = _log([("A", ["r1"])] * 80, cases_per_day=2)
+        log["case:amount"] = np.where(
+            log["time:timestamp"].dt.dayofyear > 40, 1.7e308, 0.0
+        )
+        feature = ("case_value", "amount")
+        result = cv_indicators.apply(
+            log, {"features": [feature], "candidate_windows": [1]}
+        )
+        self.assertEqual(result.scores[-1].details["values"][feature], 1.7e308)
+        self.assertEqual([alarm.index for alarm in result.changes], [40])
+        width, _, smoothed = cv_indicators._select_width(
+            pd.Series([1.0, np.inf, 3.0]), [1], "mean", 2
+        )
+        self.assertEqual(width, 1)
+        np.testing.assert_allclose(smoothed, [1.0, np.nan, 3.0])

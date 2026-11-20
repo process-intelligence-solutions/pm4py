@@ -119,6 +119,7 @@ def apply(log, parameters=None):
 
 def _select_width(series, widths, statistic, min_observed):
     """Compute candidate CVs on a common numeric scale and select the knee."""
+    series = series.where(np.isfinite(series))
     scale = series.abs().max()
     if pd.isna(scale) or scale == 0:
         scale = 1.0

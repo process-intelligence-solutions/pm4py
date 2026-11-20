@@ -149,7 +149,17 @@ def extract_features(log, parameters=None):
         return group(values).size().reindex(index, fill_value=0)
 
     def mean(values):
-        return group(values).mean().reindex(index)
+        groups = group(values)
+        means = groups.mean()
+        largest = values.abs().max()
+        if pd.notna(largest) and largest > np.finfo(float).max / len(values):
+            # A bin can have a finite mean even when its unscaled sum overflows.
+            for label in means.index[~np.isfinite(means)]:
+                members = groups.get_group(label)
+                scale = members.abs().max()
+                if pd.notna(scale) and scale > 0:
+                    means.loc[label] = (members / scale).mean() * scale
+        return means.reindex(index)
 
     arrivals = count(cases.set_index("start"))
     completions = count(cases)
