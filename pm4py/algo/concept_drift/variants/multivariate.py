@@ -212,13 +212,7 @@ def _detect(
         values = values.copy()
         if standardize:
             selected = [i for i, key in enumerate(keys) if numeric(key)]
-            columns = values[:, selected]
-            magnitudes = np.abs(columns).max(axis=0)
-            columns = columns / np.where(magnitudes > 0, magnitudes, 1)
-            scales = columns.std(axis=0)
-            values[:, selected] = (columns - columns.mean(axis=0)) / np.where(
-                scales > 0, scales, 1
-            )
+            values[:, selected] = _common.standardize(values[:, selected])
 
         gram, effective_bandwidth = _comparison_matrix(values, method, bandwidth)
         left = np.arange(size)

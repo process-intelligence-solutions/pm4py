@@ -202,6 +202,16 @@ class ConceptDriftTimeSeriesTest(unittest.TestCase):
             set(result.changes[0].details["changed_features"]), {"arrivals"}
         )
 
+    def test_pelt_standardizes_case_values_across_finite_scales(self):
+        log = _log([("A", ["r1"])] * 20)
+        for scale in (1.0, 1e-200, 1e200):
+            with self.subTest(scale=scale):
+                log["case:amount"] = [0] * 10 + [scale] * 10
+                result = indicators.apply(
+                    log, {"features": [("case_value", "amount")], "penalty": 4}
+                )
+                self.assertEqual([alarm.index for alarm in result.changes], [10])
+
     def test_sequential_calendar_alarm_delays_and_prefix_stability(self):
         old = ("AB", ["r1", "r2"])
         new = ("AB", ["r2", "r1"])
@@ -218,10 +228,42 @@ class ConceptDriftTimeSeriesTest(unittest.TestCase):
         self.assertEqual(alarm.timestamp, START + pd.Timedelta(days=20))
         self.assertGreater(alarm.available_at, alarm.timestamp)
         prior = indicators.apply(
-            log[log["time:timestamp"] < alarm.available_at], parameters
+            log[log["time:timestamp"] < alarm.available_at],
+            {**parameters, "observation_end": alarm.available_at},
         )
         self.assertEqual(prior.changes, result.changes)
         self.assertEqual(prior.scores, result.scores[: len(prior.scores)])
+
+    def test_sequential_ignores_open_bin_and_monitors_recorded_empty_bins(self):
+        log = _log([("A", ["r1"])] * 20, cases_per_day=10)
+        last_day = START + pd.Timedelta(days=20)
+        next_event = log.iloc[[-1]].copy()
+        next_event["case:concept:name"] = "next"
+        next_event["time:timestamp"] = last_day + pd.Timedelta(hours=1)
+        early_snapshot = pd.concat([log, next_event], ignore_index=True)
+        parameters = {
+            "method": "page_hinkley",
+            "features": ["arrivals"],
+            "page_hinkley_direction": "down",
+            "page_hinkley_threshold": 5,
+        }
+
+        replay = indicators.apply(early_snapshot, parameters)
+        self.assertEqual(len(replay.scores), 20)
+        self.assertFalse(replay.changes)
+        closed = indicators.apply(
+            early_snapshot,
+            {**parameters, "observation_end": last_day + pd.Timedelta(days=2)},
+        )
+        self.assertEqual([alarm.index for alarm in closed.changes], [20])
+        self.assertEqual(
+            closed.changes[0].available_at, last_day + pd.Timedelta(days=1)
+        )
+        self.assertEqual(closed.scores[-1].details["values"]["arrivals"], 0)
+        with self.assertRaisesRegex(ValueError, "precedes the last input event"):
+            indicators.apply(
+                early_snapshot, {**parameters, "observation_end": last_day}
+            )
 
     @unittest.skipUnless(HAS_RIVER, "optional River ADWIN dependency is missing")
     def test_adwin_indicators_and_adaptive_reference(self):

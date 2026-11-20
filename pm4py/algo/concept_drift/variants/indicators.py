@@ -13,6 +13,7 @@ from pm4py.util import constants, xes_constants
 class Parameters(Enum):
     METHOD = "method"
     BIN_SIZE = "bin_size"
+    OBSERVATION_END = "observation_end"
     FEATURES = "features"
     PENALTY = "penalty"
     MIN_SIZE = "min_size"
@@ -66,6 +67,10 @@ def extract_features(log, parameters=None):
     ``bin_size`` is a pandas frequency string, default ``"D"``. Bins include
     their left edge, exclude their right edge, and retain empty periods. The
     index is the bin start and the observations are available at bin close.
+    With ``observation_end``, return only bins closed by that UTC time, extending
+    through recorded empty periods when the end follows the last event. The
+    observation end must be at or after the last input event. By default this
+    extractor includes the bin containing the last event, which may be partial.
 
     ``features`` accepts a list of names or tuples. The default indicators
     are event counts, case arrivals and completions, work in progress, and
@@ -98,6 +103,11 @@ def extract_features(log, parameters=None):
     if offset is None or offset.n <= 0:
         raise ValueError("bin_size must be a positive calendar frequency")
 
+    observation_end = _common.parameter(parameters, Parameters.OBSERVATION_END, None)
+    if observation_end is not None:
+        observation_end = pd.to_datetime(observation_end, utc=True)
+        if not isinstance(observation_end, pd.Timestamp):
+            raise ValueError("observation_end must be a timestamp")
     traces = _common.completed_traces(log, parameters)
     if not traces:
         return pd.DataFrame(
@@ -124,6 +134,12 @@ def extract_features(log, parameters=None):
 
     totals = events.resample(offset, closed="left", label="left").size()
     index = totals.index
+    last_event = traces[-1].end
+    if observation_end is not None:
+        if observation_end < last_event:
+            raise ValueError("observation_end precedes the last input event")
+        index = pd.date_range(index[0], observation_end, freq=offset)
+        totals = totals.reindex(index, fill_value=0)
 
     def group(values):
         bins = index.searchsorted(values.index, side="right") - 1
@@ -184,7 +200,13 @@ def extract_features(log, parameters=None):
                 )
             else:
                 columns[feature] = mean(activity_events[feature[0]])
-    return pd.DataFrame(columns, dtype=float)
+    frame = pd.DataFrame(columns, dtype=float)
+    if observation_end is not None:
+        frame = frame.loc[index + offset <= observation_end]
+    frame.attrs["observed_through"] = (
+        last_event if observation_end is None else observation_end
+    )
+    return frame
 
 
 def _event_table(traces, resource_key, start_key, service_time):
@@ -233,10 +255,8 @@ def _retrospective(values, parameters):
     penalty = _common.parameter(parameters, Parameters.PENALTY, 10.0)
     min_size = _common.parameter(parameters, Parameters.MIN_SIZE, 3)
     standardize = _common.parameter(parameters, Parameters.STANDARDIZE, True)
-    if standardize and len(values):
-        scale = np.std(values)
-        if scale > 0:
-            values = (values - np.mean(values)) / scale
+    if standardize:
+        values = _common.standardize(values)
     cost = _timeseries.segment_cost(values)
     cuts = _timeseries.pelt(values, penalty, min_size, cost=cost)
     bounds = [0, *cuts, len(values)]
@@ -254,7 +274,9 @@ def apply(log, parameters=None):
     segment). PELT standardizes each indicator over the full log by default.
     Set ``standardize=False`` to express the penalty in original squared units.
     The sequential methods use raw values and fixed, user-selected indicators.
-    Missing observations never update a detector.
+    Missing observations never update a detector. Sequential methods use
+    only bins closed by ``observation_end``, or by the last event timestamp
+    if no explicit end is supplied.
 
     This function replays a complete log. Its sequential availability times
     assume events are observed by their recorded timestamps and case
@@ -272,12 +294,18 @@ def apply(log, parameters=None):
     bin_size = _common.parameter(parameters, Parameters.BIN_SIZE, "D")
     starts = frame.index
     ends = starts + pd.tseries.frequencies.to_offset(bin_size)
+    observed_through = frame.attrs.get("observed_through")
+    if method != "pelt" and observed_through is not None:
+        frame = frame.loc[ends <= observed_through]
+        starts = frame.index
+        ends = ends[ends <= observed_through]
     result = _common.DriftResult(
         "calendar_bin",
         metadata={
             "variant": "indicators",
             "method": method,
             "bin_size": bin_size,
+            "observed_through": observed_through,
             "features": list(frame.columns),
             "retrospective": method == "pelt",
             "aggregation": "any_feature",

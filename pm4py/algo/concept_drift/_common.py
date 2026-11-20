@@ -165,6 +165,16 @@ def directly_follows(activities: Sequence) -> Counter:
     return Counter(pairwise(activities))
 
 
+def standardize(values):
+    """Center and scale numeric columns without squaring extreme raw values."""
+    if not len(values):
+        return values
+    magnitudes = np.abs(values).max(axis=0)
+    scaled = values / np.where(magnitudes > 0, magnitudes, 1)
+    deviations = scaled.std(axis=0)
+    return (scaled - scaled.mean(axis=0)) / np.where(deviations > 0, deviations, 1)
+
+
 def count_vectors(counts: Sequence[Mapping]) -> tuple[list, np.ndarray]:
     """Align count vectors by key in order of first appearance."""
     keys = list(dict.fromkeys(key for row in counts for key in row))

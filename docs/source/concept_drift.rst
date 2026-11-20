@@ -86,8 +86,10 @@ Each variant's ``apply`` docstring describes its parameters.
   resource assignment, handovers, and case composition. Sequential methods
   use raw values with one monitor per feature. Any feature can raise an
   alarm. Calendar replay assumes the first and last observed events identify
-  starts and completions in the supplied complete cases. Bins are available
-  when they close.
+  starts and completions in the supplied complete cases. Sequential
+  monitoring uses bins closed by the last event timestamp. Set
+  ``observation_end`` to use a known later cutoff, including recorded empty
+  bins. Retrospective extraction includes the final bin by default.
 * **Conformance.** ``CONFORMANCE`` is a FAIRY-inspired detector that monitors
   trace alignment fitness with Page–Hinkley or ADWIN. It accepts a Petri net
   or discovers one with Inductive Miner. The reference can stay fixed or be
