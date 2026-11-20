@@ -189,11 +189,9 @@ def extract_global_features(sub_log, Sigma):
     """
     Extract the Relation Type Count (RC) feature vector for a sub-log.
 
-    For each activity b in Sigma, we compute:
-
-     - ca = # of activities a where b ALWAYS follows a (in all traces that contain 'a')
-     - cs = # of activities a where b SOMETIMES follows a
-     - cn = # of activities a where b NEVER follows a
+    For each activity a in Sigma, count the activities that always,
+    sometimes, or never follow a. The denominator is the number of traces
+    containing a. A later occurrence of a can follow an earlier one.
     """
     # Count how many traces contain each activity 'a'
     n_a = {a: 0 for a in Sigma}
@@ -213,25 +211,12 @@ def extract_global_features(sub_log, Sigma):
 
     # Build the RC feature vector
     fRC = []
-    for b in Sigma:
-        ca = 0  # # of 'a' with b always follows a
-        cs = 0  # # of 'a' with b sometimes follows a
-        cn = 0  # # of 'a' with b never follows a
-        for a in Sigma:
-            if n_a[a] == 0:
-                # 'a' does not appear in any trace => skip or count as "never"?
-                # The original code lumps them under 'never'.
-                cn += 1
-            else:
-                # check how many times we have a->b out of all traces that have 'a'
-                if n_a_then_b[a][b] == n_a[a]:
-                    ca += 1
-                elif n_a_then_b[a][b] > 0:
-                    cs += 1
-                else:
-                    cn += 1
-        # each activity 'b' extends the feature vector by [ca, cs, cn]
-        fRC.extend([ca, cs, cn])
+    for a in Sigma:
+        counts = n_a_then_b[a].values()
+        always = sum(0 < count == n_a[a] for count in counts)
+        sometimes = sum(0 < count < n_a[a] for count in counts)
+        never = len(Sigma) - always - sometimes
+        fRC.extend((always, sometimes, never))
 
     return np.array(fRC, dtype=float)
 

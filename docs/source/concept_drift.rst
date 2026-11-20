@@ -62,8 +62,9 @@ Choosing a detector
 
 Each variant's ``apply`` docstring describes its parameters.
 
-* **Behavioral relation statistics.** ``BOSE`` monitors eventually-follows
-  relation features. ``DFG_FREQUENCY`` is a new combination that compares
+* **Behavioral relation statistics.** ``BOSE`` counts how many activities
+  always, sometimes, or never follow each activity in a sublog.
+  ``DFG_FREQUENCY`` is a new combination that compares
   adjacent completed-trace windows using Jensen–Shannon distance and a
   trace-level permutation test or a likelihood-ratio G-test. Both windows
   need edges to estimate their conditional edge frequencies. Set

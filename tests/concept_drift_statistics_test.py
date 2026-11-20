@@ -5,7 +5,7 @@ import pandas as pd
 
 from pm4py.algo.concept_drift import _common, algorithm
 from pm4py.algo.concept_drift.result import DriftResult, WindowScore
-from pm4py.algo.concept_drift.variants import dfg_frequency
+from pm4py.algo.concept_drift.variants import bose, dfg_frequency
 from pm4py.objects.log.obj import Event, EventLog, Trace
 
 
@@ -238,7 +238,7 @@ class DriftDispatchTest(unittest.TestCase):
 
     def test_bose_orders_cases_by_time_and_preserves_the_original_segments(self):
         case_ids = np.random.default_rng(5).permutation(61)
-        situations = [("A,B", "C")] * 30 + [("A,B", "D")] * 31
+        situations = [("A,B", "C")] * 30 + [("A,B", "C", "D")] * 31
         log = make_log(situations).rename(
             columns={
                 "case:concept:name": "case",
@@ -246,7 +246,11 @@ class DriftDispatchTest(unittest.TestCase):
                 "time:timestamp": "when",
             }
         )
-        log["case"] = [f"{case_ids[i // 2]:03}" for i in range(len(log))]
+        log["case"] = [
+            f"{identifier:03}"
+            for identifier, activities in zip(case_ids, situations)
+            for _ in activities
+        ]
         log["weight"] = np.arange(len(log))
         parameters = {
             "case_id_key": "case",
@@ -265,7 +269,7 @@ class DriftDispatchTest(unittest.TestCase):
         self.assertEqual(timestamps, [log.loc[60, "when"].timestamp()])
         self.assertEqual(len(p_values), 1)
         self.assertTrue(0 < p_values[0] < 0.05)
-        self.assertEqual([len(segment) for segment in segments], [60, 62])
+        self.assertEqual([len(segment) for segment in segments], [60, 93])
         pd.testing.assert_frame_equal(pd.concat(segments, ignore_index=True), log)
 
         legacy = EventLog(
@@ -282,10 +286,18 @@ class DriftDispatchTest(unittest.TestCase):
         )
         self.assertEqual((legacy_timestamps, legacy_p_values), (timestamps, p_values))
 
+    def test_bose_relation_type_count_follows_its_source_activity(self):
+        # The worked example in Bose et al. (2011), sections 4.1 and 4.2.
+        labels = "abcdefghijk"
+        sublog = ["acaebfh", "ahijebd", "aeghijk"]
+        values = bose.extract_global_features(sublog, labels).reshape(-1, 3)
+        counts = dict(zip(labels, values))
+        np.testing.assert_array_equal(counts["a"], [2, 9, 0])
+        np.testing.assert_array_equal(counts["i"], [1, 4, 6])
+        np.testing.assert_array_equal(counts["k"], [0, 0, 11])
+
     def test_bose_does_not_permute_a_partial_sublog(self):
         from unittest.mock import patch
-
-        from pm4py.algo.concept_drift.variants import bose
 
         with patch.object(bose, "permutation_test", return_value=0.01) as test:
             sublogs, changes = bose.detect_concept_drift(
