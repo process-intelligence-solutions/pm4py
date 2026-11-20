@@ -165,7 +165,7 @@ class MultivariateTest(unittest.TestCase):
                 result = multivariate.apply_features(
                     values,
                     {"window_size": 20, "method": method},
-                    available_at=closes,
+                    available_at=pd.Series(closes, index=range(90, 130)),
                     observation_unit="calendar_bin",
                 )
                 self.assertEqual(result.observation_unit, "calendar_bin")
@@ -212,3 +212,49 @@ class MultivariateTest(unittest.TestCase):
             multivariate.apply_features([0, 1], timestamps=["2025-01-02", "2025-01-01"])
         with self.assertRaisesRegex(ValueError, "Unknown trace feature"):
             multivariate.apply(log, {"features": ["unknown"]})
+
+    def test_standardizing_handles_large_and_small_finite_scales(self):
+        from pm4py.algo.concept_drift.variants import multivariate
+
+        reference = np.r_[np.zeros(20), np.ones(20)]
+        scores = [
+            multivariate.apply_features(reference * scale, {"window_size": 20}).scores[
+                0
+            ]
+            for scale in (1.0, 1e-200, 1e200)
+        ]
+        self.assertGreater(scores[0].score, 0.0)
+        self.assertEqual([score.score for score in scores], [scores[0].score] * 3)
+        self.assertEqual([score.p_value for score in scores], [scores[0].p_value] * 3)
+
+
+class DriftDispatchTest(unittest.TestCase):
+    def test_bose_default_preserves_legacy_return(self):
+        log = make_log(["AB"] * 10)
+        parameters = {"sub_log_size": 5, "window_size": 2}
+        sublogs, timestamps, p_values = algorithm.apply(log, parameters=parameters)
+        self.assertGreater(len(sublogs), 0)
+        self.assertEqual((timestamps, p_values), ([], []))
+
+    def test_all_new_variants_return_shared_result_on_empty_input(self):
+        from importlib.util import find_spec
+
+        cases = {
+            variant: {}
+            for variant in algorithm.Variants
+            if variant is not algorithm.Variants.BOSE
+        }
+        cases[algorithm.Variants.SUPERVISED_SIMILARITY] = {"predictor": lambda _: []}
+        if not find_spec("hdbscan"):
+            del cases[algorithm.Variants.VERSION_CLUSTERING]
+        for variant, parameters in cases.items():
+            with self.subTest(variant=variant.name):
+                result = algorithm.apply(pd.DataFrame(), variant, parameters)
+                self.assertIsInstance(result, DriftResult)
+                self.assertFalse(
+                    result.scores
+                    or result.changes
+                    or result.versions
+                    or result.intervals
+                )
+                self.assertIn("pm4py_version", result.metadata)

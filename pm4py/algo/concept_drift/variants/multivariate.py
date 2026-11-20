@@ -165,7 +165,7 @@ def _trace_features(trace, features, resource_key):
 def _time_axis(values, length, name):
     if values is None:
         return [None] * length
-    axis = pd.to_datetime(values, utc=True)
+    axis = pd.DatetimeIndex(pd.to_datetime(values, utc=True))
     if len(axis) != length or axis.isna().any() or not axis.is_monotonic_increasing:
         raise ValueError(
             f"{name} must contain one chronological timestamp per observation"
@@ -213,6 +213,8 @@ def _detect(
         if standardize:
             selected = [i for i, key in enumerate(keys) if numeric(key)]
             columns = values[:, selected]
+            magnitudes = np.abs(columns).max(axis=0)
+            columns = columns / np.where(magnitudes > 0, magnitudes, 1)
             scales = columns.std(axis=0)
             values[:, selected] = (columns - columns.mean(axis=0)) / np.where(
                 scales > 0, scales, 1

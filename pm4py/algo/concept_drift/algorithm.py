@@ -8,9 +8,16 @@ import pandas as pd
 from pm4py.algo.concept_drift.result import DriftResult
 from pm4py.algo.concept_drift.variants import (
     bose,
+    conformance,
+    declare_profiles,
     dfg_frequency,
+    earth_mover,
+    indicators,
+    lcdd,
     multivariate,
+    run_distribution,
     supervised_similarity,
+    version_clustering,
 )
 from pm4py.objects.log.obj import EventLog
 from pm4py.util import exec_utils
@@ -19,6 +26,13 @@ from pm4py.util import exec_utils
 class Variants(Enum):
     BOSE = bose
     DFG_FREQUENCY = dfg_frequency
+    LCDD = lcdd
+    RUN_DISTRIBUTION = run_distribution
+    EARTH_MOVER = earth_mover
+    INDICATORS = indicators
+    CONFORMANCE = conformance
+    DECLARE_PROFILES = declare_profiles
+    VERSION_CLUSTERING = version_clustering
     MULTIVARIATE = multivariate
     SUPERVISED_SIMILARITY = supervised_similarity
 

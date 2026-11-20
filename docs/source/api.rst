@@ -120,6 +120,12 @@ Among *declarative process models*, ``pm4py`` currently supports:
   * :meth:`pm4py.discovery.discover_temporal_profile`; discovers a *temporal profile*.
 
 
+Concept Drift (:mod:`pm4py.algo.concept_drift`)
+---------------------------------------------
+:func:`pm4py.algo.concept_drift.algorithm.apply` dispatches concept-drift
+detectors. See :doc:`concept_drift` for variant options, time conventions,
+and result fields.
+
 Conformance Checking (:mod:`pm4py.conformance`)
 -----------------------------------------------
 Conformance checking techniques compare a process model with an event log of the same process. The goal is to check if the event log conforms to the model, and vice versa.

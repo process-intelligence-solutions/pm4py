@@ -50,7 +50,7 @@ enabled_tests = [
     "SerializationLogUtilsCoverageTest", "PetriStochasticSerializationCoverageTest",
     "PowlTreeGenerationDeepCoverageTest",
     "RemainingAlgorithmsCoverageTest", "IoFilteringEdgeCoverageTest",
-    "FinalBufferCoverageTest", "LpSolverTest"
+    "FinalBufferCoverageTest", "LpSolverTest", "ConceptDriftTests"
 ]
 
 if importlib.util.find_spec("polars"):
@@ -742,6 +742,11 @@ if "PowlTreeGenerationDeepCoverageTest" in enabled_tests:
     except:
         print("PowlTreeGenerationDeepCoverageTest import failed!")
         failed += 1
+
+if "ConceptDriftTests" in enabled_tests:
+    suite.addTests(
+        loader.discover(current_dir, pattern="concept_drift_*_test.py", top_level_dir=parent_dir)
+    )
 
 if "RemainingAlgorithmsCoverageTest" in enabled_tests:
     try:

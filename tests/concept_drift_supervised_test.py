@@ -45,7 +45,7 @@ class SupervisedSimilarityTest(unittest.TestCase):
         self.assertEqual([score.score for score in result.scores], [0.8, 0.9, 0.2])
         self.assertEqual([alarm.index for alarm in result.changes], [4, 4])
         (interval,) = result.intervals
-        self.assertEqual((interval.start_index, interval.end_index), (4, 8))
+        self.assertEqual((interval.start_index, interval.end_index), (4, 9))
         self.assertEqual(interval.details["type"], "recurring")
         self.assertEqual(interval.available_at, log["time:timestamp"].max())
         with self.assertRaisesRegex(ValueError, "outside"):

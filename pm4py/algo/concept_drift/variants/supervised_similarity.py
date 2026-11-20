@@ -1,6 +1,5 @@
 """Learned drift recognition on window similarity images."""
 
-from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass
 from itertools import groupby
@@ -70,7 +69,7 @@ def apply(log, parameters=None):
         confidence = _common.real(region.confidence, "confidence", maximum=1)
         location = (first + last) // 2 if region.kind == "sudden" else first
         start = image.windows[location][0]
-        index = image.windows[last][0]
+        index = image.windows[last][1] - 1
         details = {
             "type": region.kind,
             "window_range": (first, last),
@@ -132,7 +131,14 @@ def fit(
     the resulting predictor with the same image window settings as in training.
     This lightweight adaptation requires the ``pm4py[ml]`` extra.
     """
-    from sklearn.tree import DecisionTreeClassifier
+    try:
+        from sklearn.tree import DecisionTreeClassifier
+    except ModuleNotFoundError as error:
+        if error.name != "sklearn":
+            raise
+        raise ImportError(
+            "The patch classifier requires scikit-learn. Install pm4py[ml]."
+        ) from error
 
     radius = _common.integer(radius, "radius")
     patches, labels = [], []
@@ -202,13 +208,7 @@ def _encode(log, parameters):
     windows = _common.window_partition(
         len(traces), _common.parameter(parameters, "num_windows", 200)
     )
-    counts = []
-    for start, stop in windows:
-        edges = Counter()
-        for trace in traces[start:stop]:
-            edges.update(_common.directly_follows(trace.activities))
-        counts.append(edges)
-    similarity = _common.cosine_similarity(counts)
+    similarity = _common.dfg_window_similarities(traces, windows)
     minimum = similarity.min() if similarity.size else 1
     if minimum < 1 and not np.isclose(minimum, 1, rtol=0, atol=1e-12):
         pixels = np.clip(255 * (similarity - minimum) / (1 - minimum), 0, 255)

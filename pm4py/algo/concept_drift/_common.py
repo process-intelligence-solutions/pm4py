@@ -190,6 +190,17 @@ def cosine_similarity(counts: Sequence[Mapping]) -> np.ndarray:
     return similarity
 
 
+def dfg_window_similarities(traces, windows):
+    """Build a cosine-similarity matrix for contiguous trace windows."""
+    counts = []
+    for start, stop in windows:
+        edges = Counter()
+        for trace in traces[start:stop]:
+            edges.update(directly_follows(trace.activities))
+        counts.append(edges)
+    return cosine_similarity(counts)
+
+
 def consolidate(
     scores: Iterable[WindowScore],
     is_signal: Callable[[WindowScore], bool],
