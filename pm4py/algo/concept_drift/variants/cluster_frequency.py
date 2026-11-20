@@ -23,6 +23,14 @@ def _trace_profile(activities):
     return profile
 
 
+def _kmeans_input(matrix):
+    # K-means requires 32-bit CSR indices even when the encoder returns int64.
+    if max(*matrix.shape, matrix.nnz) <= np.iinfo(np.int32).max:
+        matrix.indices = matrix.indices.astype(np.int32, copy=False)
+        matrix.indptr = matrix.indptr.astype(np.int32, copy=False)
+    return matrix
+
+
 def _classify(observations, training_size, n_clusters, seed, outlier_distance):
     try:
         from sklearn.feature_extraction import DictVectorizer
@@ -40,12 +48,12 @@ def _classify(observations, training_size, n_clusters, seed, outlier_distance):
     clusters = min(n_clusters, n_distinct)
     encoder = DictVectorizer(sort=False)
     model = ml_utils.KMeans(n_clusters=clusters, random_state=seed, n_init=10).fit(
-        encoder.fit_transform(training)
+        _kmeans_input(encoder.fit_transform(training))
     )
     monitoring = [
         _trace_profile(trace.activities) for trace in observations[training_size:]
     ]
-    distances = model.transform(encoder.transform(monitoring))
+    distances = model.transform(_kmeans_input(encoder.transform(monitoring)))
     closest = distances.argmin(axis=1)
     versions = []
     for offset, (profile, cluster) in enumerate(zip(monitoring, closest)):
