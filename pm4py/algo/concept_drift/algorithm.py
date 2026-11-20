@@ -6,7 +6,12 @@ from typing import Any
 import pandas as pd
 
 from pm4py.algo.concept_drift.result import DriftResult
-from pm4py.algo.concept_drift.variants import bose, dfg_frequency
+from pm4py.algo.concept_drift.variants import (
+    bose,
+    dfg_frequency,
+    multivariate,
+    supervised_similarity,
+)
 from pm4py.objects.log.obj import EventLog
 from pm4py.util import exec_utils
 
@@ -14,6 +19,8 @@ from pm4py.util import exec_utils
 class Variants(Enum):
     BOSE = bose
     DFG_FREQUENCY = dfg_frequency
+    MULTIVARIATE = multivariate
+    SUPERVISED_SIMILARITY = supervised_similarity
 
 
 def apply(

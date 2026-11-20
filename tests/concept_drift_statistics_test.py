@@ -148,3 +148,67 @@ class DfgFrequencyTest(unittest.TestCase):
             )
         with self.assertRaisesRegex(ValueError, "must divide"):
             dfg_frequency.apply(log, {"window_size": 5, "permutation_block_size": 2})
+
+
+class MultivariateTest(unittest.TestCase):
+    def test_dependence_shift_with_identical_marginals(self):
+        from pm4py.algo.concept_drift.variants import multivariate
+
+        values = pd.DataFrame(
+            [(-1, -1), (1, 1)] * 10 + [(-1, 1), (1, -1)] * 10,
+            columns=["workload", "delay"],
+            index=pd.date_range("2025", periods=40, freq="h", tz="UTC"),
+        )
+        closes = values.index + pd.Timedelta(hours=1)
+        for method in ("mmd", "energy"):
+            with self.subTest(method=method):
+                result = multivariate.apply_features(
+                    values,
+                    {"window_size": 20, "method": method},
+                    available_at=closes,
+                    observation_unit="calendar_bin",
+                )
+                self.assertEqual(result.observation_unit, "calendar_bin")
+                (change,) = result.changes
+                self.assertEqual(change.index, 20)
+                self.assertEqual(change.timestamp, values.index[20])
+                self.assertEqual(change.available_at, closes[-1])
+                self.assertEqual(change.details["changed_means"], {})
+                self.assertGreater(change.score, 0)
+                self.assertLessEqual(change.p_value, 0.05)
+                stable = pd.concat([values.iloc[:20]] * 2, ignore_index=True)
+                self.assertFalse(
+                    multivariate.apply_features(
+                        stable, {"window_size": 20, "method": method}
+                    ).changes
+                )
+
+    def test_joint_resource_assignment_and_marginal_null(self):
+        log = make_log(["AB"] * 40)
+        log["org:resource"] = ["r1", "r2"] * 20 + ["r2", "r1"] * 20
+        for feature_spec, expected in (
+            (("activity_resource",), [20]),
+            (("resource", "activity", "dfg", "duration"), []),
+        ):
+            result = algorithm.apply(
+                log,
+                algorithm.Variants.MULTIVARIATE,
+                {"window_size": 20, "features": feature_spec},
+            )
+            self.assertEqual([alarm.index for alarm in result.changes], expected)
+
+    def test_bad_numeric_input_and_custom_features(self):
+        from pm4py.algo.concept_drift.variants import multivariate
+
+        log = make_log(["AB"] * 8 + ["ABCD"] * 8)
+        result = multivariate.apply(
+            log,
+            {"window_size": 8, "features": lambda trace: {"length": len(trace.events)}},
+        )
+        self.assertEqual([alarm.index for alarm in result.changes], [8])
+        with self.assertRaisesRegex(ValueError, "finite"):
+            multivariate.apply_features([1, np.nan])
+        with self.assertRaisesRegex(ValueError, "chronological"):
+            multivariate.apply_features([0, 1], timestamps=["2025-01-02", "2025-01-01"])
+        with self.assertRaisesRegex(ValueError, "Unknown trace feature"):
+            multivariate.apply(log, {"features": ["unknown"]})
