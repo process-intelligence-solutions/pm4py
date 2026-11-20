@@ -1,34 +1,31 @@
+"""Dispatchers for concept drift detection in event logs."""
+
 from enum import Enum
-from pm4py.algo.concept_drift.variants import bose
-from pm4py.util import exec_utils
+from typing import Any
+
 import pandas as pd
+
+from pm4py.algo.concept_drift.result import DriftResult
+from pm4py.algo.concept_drift.variants import bose, dfg_frequency
 from pm4py.objects.log.obj import EventLog
-from typing import Union, Dict, Any, Optional, Tuple, List
+from pm4py.util import exec_utils
 
 
 class Variants(Enum):
     BOSE = bose
+    DFG_FREQUENCY = dfg_frequency
 
 
-def apply(log: Union[EventLog, pd.DataFrame], variant=Variants.BOSE, parameters: Optional[Dict[Any, Any]] = None) -> \
-Tuple[List[pd.DataFrame], List[int], List[float]]:
-    """
-    Parameters
-    --------------
-    log
-        Event log or Pandas dataframe
-    variant
-        Variant of the algorithm (available: Variants.BOSE)
-    parameters
-        Variant-specific parameters
+def apply(
+    log: EventLog | pd.DataFrame,
+    variant=Variants.BOSE,
+    parameters: dict[Any, Any] | None = None,
+) -> DriftResult | tuple[list, list[float], list[float]]:
+    """Detect concept drift in an EventLog or pandas DataFrame.
 
-    Returns
-    ---------------
-    returned_sublogs : List[EventLog]
-        A list of sub-logs, where each sub-log is an EventLog object representing the cumulative segment of the original event log from the start up to each detected change point (and the final sub-log up to the end). Note: Due to a potential implementation issue, these sub-logs are not segments between change points but rather cumulative logs up to each change point.
-    change_timestamps : List[float]
-        A list of timestamps where concept drifts are detected. Each timestamp corresponds to the start time of the first trace in the sub-log where a change point occurs, based on case start timestamps.
-    p_values : List[float]
-        A list of p-values associated with each detected change point, indicating the statistical significance of the drift (lower values suggest stronger evidence of a change).
+    Pass detector-specific options in ``parameters``. The default ``BOSE``
+    preserves its original tuple of sublogs, Unix timestamps and p-values.
+    Other variants return a :class:`~pm4py.algo.concept_drift.result.DriftResult`
+    with scores, change locations, and temporal and configuration metadata.
     """
     return exec_utils.get_variant(variant).apply(log, parameters)
