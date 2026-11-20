@@ -53,7 +53,9 @@ The new variants return a
 
 Calling ``algorithm.apply(log)`` still selects the existing Bose-inspired
 detector and returns its original tuple of sublogs, Unix timestamps, and
-p-values.
+p-values. It orders cases by their first timestamp and returns consecutive
+segments of the input events. Set ``random_state`` to reproduce the
+permutation tests.
 
 Choosing a detector
 -------------------

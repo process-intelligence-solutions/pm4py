@@ -236,6 +236,65 @@ class DriftDispatchTest(unittest.TestCase):
         self.assertGreater(len(sublogs), 0)
         self.assertEqual((timestamps, p_values), ([], []))
 
+    def test_bose_orders_cases_by_time_and_preserves_the_original_segments(self):
+        case_ids = np.random.default_rng(5).permutation(61)
+        situations = [("A,B", "C")] * 30 + [("A,B", "D")] * 31
+        log = make_log(situations).rename(
+            columns={
+                "case:concept:name": "case",
+                "concept:name": "activity",
+                "time:timestamp": "when",
+            }
+        )
+        log["case"] = [f"{case_ids[i // 2]:03}" for i in range(len(log))]
+        log["weight"] = np.arange(len(log))
+        parameters = {
+            "case_id_key": "case",
+            "activity_key": "activity",
+            "timestamp_key": "when",
+            "sub_log_size": 5,
+            "window_size": 4,
+            "num_permutations": 999,
+            "thresh_p_value": 0.05,
+            "random_state": 8,
+        }
+
+        segments, timestamps, p_values = algorithm.apply(
+            log.sample(frac=1, random_state=9), parameters=parameters
+        )
+        self.assertEqual(timestamps, [log.loc[60, "when"].timestamp()])
+        self.assertEqual(len(p_values), 1)
+        self.assertTrue(0 < p_values[0] < 0.05)
+        self.assertEqual([len(segment) for segment in segments], [60, 62])
+        pd.testing.assert_frame_equal(pd.concat(segments, ignore_index=True), log)
+
+        legacy = EventLog(
+            [
+                Trace(
+                    [Event(row) for row in group.to_dict("records")],
+                    attributes={"concept:name": identifier},
+                )
+                for identifier, group in log.groupby("case")
+            ]
+        )
+        _, legacy_timestamps, legacy_p_values = algorithm.apply(
+            legacy, parameters=parameters
+        )
+        self.assertEqual((legacy_timestamps, legacy_p_values), (timestamps, p_values))
+
+    def test_bose_does_not_permute_a_partial_sublog(self):
+        from unittest.mock import patch
+
+        from pm4py.algo.concept_drift.variants import bose
+
+        with patch.object(bose, "permutation_test", return_value=0.01) as test:
+            sublogs, changes = bose.detect_concept_drift(
+                ["AB"] * 19, sub_log_size=5, window_size=2
+            )
+        test.assert_not_called()
+        self.assertEqual([len(sublog) for sublog in sublogs], [5, 5, 5, 4])
+        self.assertEqual(changes, [])
+
     def test_all_new_variants_return_shared_result_on_empty_input(self):
         from importlib.util import find_spec
 
