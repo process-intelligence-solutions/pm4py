@@ -1,736 +1,364 @@
-'''
-PM4Py – A Process Mining Library for Python
-Copyright (C) 2026 Process Intelligence Solutions GmbH
+import warnings
+from enum import Enum
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program.  If not, see this software project's root or
-visit <https://www.gnu.org/licenses/>.
-
-Website: https://processintelligence.solutions
-Contact: info@processintelligence.solutions
-'''
 from pm4py.objects.bpmn.obj import BPMN
 from pm4py.util import constants, exec_utils
-from enum import Enum
 
 
 class Parameters(Enum):
     ENCODING = "encoding"
 
 
-class Counts:
-    def __init__(self):
-        self.number_processes = 0
+_BPMN_MODEL = "http://www.omg.org/spec/BPMN/20100524/MODEL"
+_BPMN_DI = "http://www.omg.org/spec/BPMN/20100524/DI"
+_DC = "http://www.omg.org/spec/DD/20100524/DC"
+_DI = "http://www.omg.org/spec/DD/20100524/DI"
+
+_NODE_TYPES = {
+    "collaboration": BPMN.Collaboration,
+    "participant": BPMN.Participant,
+    "textannotation": BPMN.TextAnnotation,
+    "dataobjectreference": BPMN.DataObjectReference,
+    "datastorereference": BPMN.DataStoreReference,
+    "subprocess": BPMN.SubProcess,
+    "adhocsubprocess": BPMN.SubProcess,
+    "task": BPMN.Task,
+    "businessruletask": BPMN.Task,
+    "manualtask": BPMN.Task,
+    "receivetask": BPMN.Task,
+    "scripttask": BPMN.Task,
+    "servicetask": BPMN.Task,
+    "usertask": BPMN.UserTask,
+    "sendtask": BPMN.SendTask,
+    "startevent": BPMN.NormalStartEvent,
+    "endevent": BPMN.NormalEndEvent,
+    "intermediatecatchevent": BPMN.IntermediateCatchEvent,
+    "intermediatethrowevent": BPMN.NormalIntermediateThrowEvent,
+    "boundaryevent": BPMN.BoundaryEvent,
+    "exclusivegateway": BPMN.ExclusiveGateway,
+    "parallelgateway": BPMN.ParallelGateway,
+    "inclusivegateway": BPMN.InclusiveGateway,
+    "eventbasedgateway": BPMN.EventBasedGateway,
+}
+
+_EVENT_TYPES = {
+    "startevent": {"messageeventdefinition": BPMN.MessageStartEvent},
+    "endevent": {
+        "messageeventdefinition": BPMN.MessageEndEvent,
+        "terminateeventdefinition": BPMN.TerminateEndEvent,
+        "erroreventdefinition": BPMN.ErrorEndEvent,
+        "canceleventdefinition": BPMN.CancelEndEvent,
+    },
+    "intermediatecatchevent": {
+        "messageeventdefinition": BPMN.MessageIntermediateCatchEvent,
+        "erroreventdefinition": BPMN.ErrorIntermediateCatchEvent,
+        "canceleventdefinition": BPMN.CancelIntermediateCatchEvent,
+    },
+    "intermediatethrowevent": {
+        "messageeventdefinition": BPMN.MessageIntermediateThrowEvent,
+    },
+    "boundaryevent": {
+        "messageeventdefinition": BPMN.MessageBoundaryEvent,
+        "erroreventdefinition": BPMN.ErrorBoundaryEvent,
+        "canceleventdefinition": BPMN.CancelBoundaryEvent,
+    },
+}
+
+_FLOW_TYPES = {
+    "sequenceflow": BPMN.SequenceFlow,
+    "messageflow": BPMN.MessageFlow,
+    "association": BPMN.Association,
+}
+
+_FLOW_NODE_TYPES = (BPMN.Activity, BPMN.Event, BPMN.Gateway)
 
 
-def parse_element(
-    bpmn_graph,
-    counts,
-    curr_el,
-    parents,
-    incoming_dict,
-    outgoing_dict,
-    nodes_dict,
-    nodes_bounds,
-    flow_info,
-    process=None,
-    node=None,
-    bpmn_element=None,
-    flow=None,
-    rec_depth=0,
+def _local_name(element, namespace):
+    if not isinstance(element.tag, str):
+        return None
+    qualifier, _, local_name = element.tag.rpartition("}")
+    if qualifier in ("", "{" + namespace):
+        return local_name.lower()
+    return None
+
+
+def _reference_id(element, value, target_namespace):
+    if value is None:
+        return None
+    value = value.strip()
+    prefix, separator, local_id = value.partition(":")
+    if (
+        separator
+        and target_namespace
+        and element.nsmap.get(prefix) == target_namespace
+    ):
+        return local_id
+    return value or None
+
+
+def _name(element, line_break=""):
+    return (
+        element.get("name", "")
+        .replace("\r", line_break)
+        .replace("\n", line_break)
+    )
+
+
+def _make_node(element, tag, node_id, process, depth, target_namespace):
+    node_type = _NODE_TYPES[tag]
+    attributes = {"id": node_id, "process": process}
+
+    if tag in _EVENT_TYPES:
+        for child in element:
+            definition = _local_name(child, _BPMN_MODEL)
+            if definition and definition.endswith("eventdefinition"):
+                node_type = _EVENT_TYPES[tag].get(definition, node_type)
+                break
+        attributes["name"] = _name(element, line_break=" ")
+    elif tag not in ("collaboration", "textannotation"):
+        attributes["name"] = _name(element)
+
+    if tag == "collaboration":
+        attributes["process"] = node_id
+    elif tag == "participant":
+        attributes["process"] = None
+        attributes["process_ref"] = _reference_id(
+            element, element.get("processRef"), target_namespace
+        )
+    elif tag == "textannotation":
+        attributes["text"] = next(
+            (
+                child.text
+                for child in element
+                if _local_name(child, _BPMN_MODEL) == "text"
+            ),
+            "",
+        )
+    elif tag == "dataobjectreference":
+        attributes["data_object_ref"] = element.get("dataObjectRef")
+    elif tag == "datastorereference":
+        attributes["data_store_ref"] = _reference_id(
+            element, element.get("dataStoreRef"), target_namespace
+        )
+    elif node_type is BPMN.SubProcess:
+        attributes["depth"] = depth
+    elif tag == "boundaryevent":
+        attributes["activity"] = _reference_id(
+            element, element.get("attachedToRef"), target_namespace
+        )
+    elif issubclass(node_type, BPMN.Gateway):
+        direction = BPMN.Gateway.Direction
+        attributes["gateway_direction"] = direction.__members__.get(
+            element.get("gatewayDirection", "").upper(), direction.UNSPECIFIED
+        )
+
+    return node_type(**attributes)
+
+
+def _add_flow(
+    graph, nodes, flow_type, flow_id, name, process, source_id, target_id
 ):
-    """
-    Parses a BPMN element from the XML file
-    """
-    layout = bpmn_graph.get_layout()
-    tag = curr_el.tag.lower()
-
-    if curr_el.get("id") is not None:
-        if tag.endswith("collaboration"):
-            collaboration_id = curr_el.get("id")
-            collaboration = BPMN.Collaboration(
-                id=collaboration_id, process=collaboration_id
+    source = nodes.get(source_id)
+    target = nodes.get(target_id)
+    for attribute, reference, node in (
+        ("sourceRef", source_id, source),
+        ("targetRef", target_id, target),
+    ):
+        if node is None:
+            reason = (
+                "is missing"
+                if reference is None
+                else f"{reference!r} does not identify a supported BPMN node"
             )
-            bpmn_graph.add_node(collaboration)
-            nodes_dict[collaboration_id] = collaboration
-        elif tag.endswith("participant"):
-            participant_id = curr_el.get("id")
-            name = (
-                curr_el.get("name").replace("\r", "").replace("\n", "")
-                if "name" in curr_el.attrib
-                else ""
-            )
-            process_ref = curr_el.get("processRef")
-            participant = BPMN.Participant(
-                id=participant_id,
-                name=name,
-                process=None,
-                process_ref=process_ref,
-            )
-            bpmn_graph.add_node(participant)
-            nodes_dict[participant_id] = participant
-        elif tag.endswith("textannotation"):
-            annotation_id = curr_el.get("id")
-            text = ""
-            for child in curr_el:
-                text = child.text
-            annotation = BPMN.TextAnnotation(
-                id=annotation_id, text=text, process=process
-            )
-            bpmn_graph.add_node(annotation)
-            nodes_dict[annotation_id] = annotation
-        elif tag.endswith("subprocess"):  # subprocess invocation
-            name = (
-                curr_el.get("name").replace("\r", "").replace("\n", "")
-                if "name" in curr_el.attrib
-                else ""
-            )
-            subprocess = BPMN.SubProcess(
-                id=curr_el.get("id"),
-                name=name,
-                process=process,
-                depth=rec_depth,
-            )
-            bpmn_graph.add_node(subprocess)
-            node = subprocess
-            process = curr_el.get("id")
-            nodes_dict[process] = node
-        elif tag.endswith("process"):  # process of the current subtree
-            process = curr_el.get("id")
-            name = (
-                curr_el.get("name").replace("\r", "").replace("\n", "")
-                if "name" in curr_el.attrib
-                else ""
-            )
-            bpmn_graph.set_process_id(process)
-            bpmn_graph.set_name(name)
-        elif tag.endswith(
-            "shape"
-        ):  # shape of a node, contains x,y,width,height information
-            bpmn_element = curr_el.get("bpmnElement")
-        elif tag.endswith("task"):  # simple task object
-            id = curr_el.get("id")
-            name = (
-                curr_el.get("name").replace("\r", "").replace("\n", "")
-                if "name" in curr_el.attrib
-                else ""
-            )
-            # this_type = str(curr_el.tag)
-            # this_type = this_type[this_type.index("}") + 1:]
-            if tag.endswith("usertask"):
-                task = BPMN.UserTask(id=id, name=name, process=process)
-            elif tag.endswith("sendtask"):
-                task = BPMN.SendTask(id=id, name=name, process=process)
-            else:
-                task = BPMN.Task(id=id, name=name, process=process)
-            bpmn_graph.add_node(task)
-            node = task
-            nodes_dict[id] = node
-        elif tag.endswith(
-            "startevent"
-        ):  # start node starting the (sub)process
-            id = curr_el.get("id")
-            name = (
-                curr_el.get("name").replace("\r", " ").replace("\n", " ")
-                if "name" in curr_el.attrib
-                else ""
-            )
-            event_definitions = [
-                child.tag.lower().replace("eventdefinition", "")
-                for child in curr_el
-                if child.tag.lower().endswith("eventdefinition")
-            ]
-            if len(event_definitions) > 0:
-                event_type = event_definitions[0]
-                if event_type.endswith("message"):
-                    start_event = BPMN.MessageStartEvent(
-                        id=curr_el.get("id"), name=name, process=process
-                    )
-                else:  # TODO: expand functionality, support more start event types
-                    start_event = BPMN.NormalStartEvent(
-                        id=curr_el.get("id"), name=name, process=process
-                    )
-            else:
-                start_event = BPMN.NormalStartEvent(
-                    id=curr_el.get("id"), name=name, process=process
-                )
-            bpmn_graph.add_node(start_event)
-            node = start_event
-            nodes_dict[id] = node
-        elif tag.endswith("endevent"):  # end node ending the (sub)process
-            id = curr_el.get("id")
-            name = (
-                curr_el.get("name").replace("\r", " ").replace("\n", " ")
-                if "name" in curr_el.attrib
-                else ""
-            )
-            event_definitions = [
-                child.tag.lower().replace("eventdefinition", "")
-                for child in curr_el
-                if child.tag.lower().endswith("eventdefinition")
-            ]
-            if len(event_definitions) > 0:
-                event_type = event_definitions[0]
-                if event_type.endswith("message"):
-                    end_event = BPMN.MessageEndEvent(
-                        id=curr_el.get("id"), name=name, process=process
-                    )
-                elif event_type.endswith("terminate"):
-                    end_event = BPMN.TerminateEndEvent(
-                        id=curr_el.get("id"), name=name, process=process
-                    )
-                elif event_type.endswith("error"):
-                    end_event = BPMN.ErrorEndEvent(
-                        id=curr_el.get("id"), name=name, process=process
-                    )
-                elif event_type.endswith("cancel"):
-                    end_event = BPMN.CancelEndEvent(
-                        id=curr_el.get("id"), name=name, process=process
-                    )
-                else:  # TODO: expand functionality, support more start event types
-                    end_event = BPMN.NormalEndEvent(
-                        id=curr_el.get("id"), name=name, process=process
-                    )
-            else:
-                end_event = BPMN.NormalEndEvent(
-                    id=curr_el.get("id"), name=name, process=process
-                )
-            bpmn_graph.add_node(end_event)
-            node = end_event
-            nodes_dict[id] = node
-        elif tag.endswith(
-            "intermediatecatchevent"
-        ):  # intermediate event that happens (externally) and can be catched
-            id = curr_el.get("id")
-            name = (
-                curr_el.get("name").replace("\r", " ").replace("\n", " ")
-                if "name" in curr_el.attrib
-                else ""
-            )
-            event_definitions = [
-                child.tag.lower().replace("eventdefinition", "")
-                for child in curr_el
-                if child.tag.lower().endswith("eventdefinition")
-            ]
-            if len(event_definitions) > 0:
-                event_type = event_definitions[0]
-                if event_type.endswith("message"):
-                    intermediate_catch_event = (
-                        BPMN.MessageIntermediateCatchEvent(
-                            id=curr_el.get("id"), name=name, process=process
-                        )
-                    )
-                elif event_type.endswith("error"):
-                    intermediate_catch_event = (
-                        BPMN.ErrorIntermediateCatchEvent(
-                            id=curr_el.get("id"), name=name, process=process
-                        )
-                    )
-                elif event_type.endswith("cancel"):
-                    intermediate_catch_event = (
-                        BPMN.CancelIntermediateCatchEvent(
-                            id=curr_el.get("id"), name=name, process=process
-                        )
-                    )
-                else:
-                    intermediate_catch_event = BPMN.IntermediateCatchEvent(
-                        id=curr_el.get("id"), name=name, process=process
-                    )
-            else:
-                intermediate_catch_event = BPMN.IntermediateCatchEvent(
-                    id=curr_el.get("id"), name=name, process=process
-                )
-            bpmn_graph.add_node(intermediate_catch_event)
-            node = intermediate_catch_event
-            nodes_dict[id] = node
-        elif tag.endswith(
-            "intermediatethrowevent"
-        ):  # intermediate event that is activated through the (sub)process
-            id = curr_el.get("id")
-            name = (
-                curr_el.get("name").replace("\r", " ").replace("\n", " ")
-                if "name" in curr_el.attrib
-                else ""
-            )
-            event_definitions = [
-                child.tag.lower().replace("eventdefinition", "")
-                for child in curr_el
-                if child.tag.lower().endswith("eventdefinition")
-            ]
-            if len(event_definitions) > 0:
-                event_type = event_definitions[0]
-                if event_type.endswith("message"):
-                    intermediate_throw_event = (
-                        BPMN.MessageIntermediateThrowEvent(
-                            id=curr_el.get("id"), name=name, process=process
-                        )
-                    )
-                else:
-                    intermediate_throw_event = (
-                        BPMN.NormalIntermediateThrowEvent(
-                            id=curr_el.get("id"), name=name, process=process
-                        )
-                    )
-            else:
-                intermediate_throw_event = BPMN.NormalIntermediateThrowEvent(
-                    id=curr_el.get("id"), name=name, process=process
-                )
-            bpmn_graph.add_node(intermediate_throw_event)
-            node = intermediate_throw_event
-            nodes_dict[id] = node
-        elif tag.endswith("boundaryevent"):
-            id = curr_el.get("id")
-            ref_activity = curr_el.get("attachedToRef")
-            name = (
-                curr_el.get("name").replace("\r", " ").replace("\n", " ")
-                if "name" in curr_el.attrib
-                else ""
-            )
-            event_definitions = [
-                child.tag.lower().replace("eventdefinition", "")
-                for child in curr_el
-                if child.tag.lower().endswith("eventdefinition")
-            ]
-            if len(event_definitions) > 0:
-                event_type = event_definitions[0]
-                if event_type.endswith("message"):
-                    boundary_event = BPMN.MessageBoundaryEvent(
-                        id=curr_el.get("id"),
-                        name=name,
-                        process=process,
-                        activity=ref_activity,
-                    )
-                elif event_type.endswith("error"):
-                    boundary_event = BPMN.ErrorBoundaryEvent(
-                        id=curr_el.get("id"),
-                        name=name,
-                        process=process,
-                        activity=ref_activity,
-                    )
-                elif event_type.endswith("cancel"):
-                    boundary_event = BPMN.CancelBoundaryEvent(
-                        id=curr_el.get("id"),
-                        name=name,
-                        process=process,
-                        activity=ref_activity,
-                    )
-                else:
-                    boundary_event = BPMN.BoundaryEvent(
-                        id=curr_el.get("id"),
-                        name=name,
-                        process=process,
-                        activity=ref_activity,
-                    )
-            else:
-                boundary_event = BPMN.BoundaryEvent(
-                    id=curr_el.get("id"),
-                    name=name,
-                    process=process,
-                    activity=ref_activity,
-                )
-            bpmn_graph.add_node(boundary_event)
-            node = boundary_event
-            nodes_dict[id] = node
-        elif tag.endswith("edge"):  # related to the x, y information of an arc
-            bpmnElement = curr_el.get("bpmnElement")
-            flow = bpmnElement
-        elif tag.endswith("exclusivegateway"):
-            id = curr_el.get("id")
-            name = (
-                curr_el.get("name").replace("\r", "").replace("\n", "")
-                if "name" in curr_el.attrib
-                else ""
-            )
-            try:
-                direction = BPMN.Gateway.Direction[
-                    curr_el.get("gatewayDirection").upper()
-                ]
-                exclusive_gateway = BPMN.ExclusiveGateway(
-                    id=curr_el.get("id"),
-                    name=name,
-                    gateway_direction=direction,
-                    process=process,
-                )
-            except BaseException:
-                exclusive_gateway = BPMN.ExclusiveGateway(
-                    id=curr_el.get("id"),
-                    name=name,
-                    gateway_direction=BPMN.Gateway.Direction.UNSPECIFIED,
-                    process=process,
-                )
-            bpmn_graph.add_node(exclusive_gateway)
-            node = exclusive_gateway
-            nodes_dict[id] = node
-        elif tag.endswith("parallelgateway"):
-            id = curr_el.get("id")
-            name = (
-                curr_el.get("name").replace("\r", "").replace("\n", "")
-                if "name" in curr_el.attrib
-                else ""
-            )
-            try:
-                direction = BPMN.Gateway.Direction[
-                    curr_el.get("gatewayDirection").upper()
-                ]
-                parallel_gateway = BPMN.ParallelGateway(
-                    id=curr_el.get("id"),
-                    name=name,
-                    gateway_direction=direction,
-                    process=process,
-                )
-            except BaseException:
-                parallel_gateway = BPMN.ParallelGateway(
-                    id=curr_el.get("id"),
-                    name=name,
-                    gateway_direction=BPMN.Gateway.Direction.UNSPECIFIED,
-                    process=process,
-                )
-            bpmn_graph.add_node(parallel_gateway)
-            node = parallel_gateway
-            nodes_dict[id] = node
-        elif tag.endswith("inclusivegateway"):
-            id = curr_el.get("id")
-            name = (
-                curr_el.get("name").replace("\r", "").replace("\n", "")
-                if "name" in curr_el.attrib
-                else ""
-            )
-            try:
-                direction = BPMN.Gateway.Direction[
-                    curr_el.get("gatewayDirection").upper()
-                ]
-                inclusive_gateway = BPMN.InclusiveGateway(
-                    id=curr_el.get("id"),
-                    name=name,
-                    gateway_direction=direction,
-                    process=process,
-                )
-            except BaseException:
-                inclusive_gateway = BPMN.InclusiveGateway(
-                    id=curr_el.get("id"),
-                    name=name,
-                    gateway_direction=BPMN.Gateway.Direction.UNSPECIFIED,
-                    process=process,
-                )
-            bpmn_graph.add_node(inclusive_gateway)
-            node = inclusive_gateway
-            nodes_dict[id] = node
-        elif tag.endswith("eventbasedgateway"):
-            id = curr_el.get("id")
-            name = (
-                curr_el.get("name").replace("\r", "").replace("\n", "")
-                if "name" in curr_el.attrib
-                else ""
-            )
-            try:
-                direction = BPMN.Gateway.Direction[
-                    curr_el.get("gatewayDirection").upper()
-                ]
-                event_based_gateway = BPMN.EventBasedGateway(
-                    id=curr_el.get("id"),
-                    name=name,
-                    gateway_direction=direction,
-                    process=process,
-                )
-            except BaseException:
-                event_based_gateway = BPMN.EventBasedGateway(
-                    id=curr_el.get("id"),
-                    name=name,
-                    gateway_direction=BPMN.Gateway.Direction.UNSPECIFIED,
-                    process=process,
-                )
-            bpmn_graph.add_node(event_based_gateway)
-            node = event_based_gateway
-            nodes_dict[id] = node
-        # FIXED: Moved the flow handling inside the id block
-        elif (
-            tag.endswith("sequenceflow")
-            or tag.endswith("messageflow")
-            or tag.endswith("association")
+        elif flow_type is BPMN.SequenceFlow and not isinstance(
+            node, _FLOW_NODE_TYPES
         ):
-            seq_flow_id = curr_el.get("id")
-            source_ref = curr_el.get("sourceRef")
-            target_ref = curr_el.get("targetRef")
-            name = (
-                curr_el.get("name").replace("\r", "").replace("\n", "")
-                if "name" in curr_el.attrib
-                else ""
+            reason = (
+                f"{reference!r} is a {type(node).__name__}, "
+                "which cannot carry sequence flow"
             )
-            if source_ref is not None and target_ref is not None:
-                incoming_dict[seq_flow_id] = (
-                    target_ref,
-                    process,
-                    tag,
-                    name,
-                    parents,
-                )
-                outgoing_dict[seq_flow_id] = (
-                    source_ref,
-                    process,
-                    tag,
-                    name,
-                    parents,
-                )
-    elif tag.endswith("incoming"):  # incoming flow of a node
-        name = (
-            curr_el.get("name").replace("\r", "").replace("\n", "")
-            if "name" in curr_el.attrib
-            else ""
-        )
-        if node is not None:
-            if curr_el.text.strip() not in incoming_dict:
-                incoming_dict[curr_el.text.strip()] = (
-                    node,
-                    process,
-                    tag,
-                    name,
-                    parents,
-                )
-    elif tag.endswith("outgoing"):  # outgoing flow of a node
-        name = (
-            curr_el.get("name").replace("\r", "").replace("\n", "")
-            if "name" in curr_el.attrib
-            else ""
-        )
-        if node is not None:
-            if curr_el.text.strip() not in outgoing_dict:
-                outgoing_dict[curr_el.text.strip()] = (
-                    node,
-                    process,
-                    tag,
-                    name,
-                    parents,
-                )
-    elif tag.endswith(
-        "waypoint"
-    ):  # contains information of x, y values of an edge
-        if flow is not None:
-            x = float(curr_el.get("x"))
-            y = float(curr_el.get("y"))
-            if flow not in flow_info:
-                flow_info[flow] = []
-            flow_info[flow].append((x, y))
-    elif tag.endswith(
-        "label"
-    ):  # label of a node, mostly at the end of a shape object
-        bpmn_element = None
-    elif tag.endswith(
-        "bounds"
-    ):  # contains information of width, height, x, y of a node
-        if bpmn_element is not None:
-            x = float(curr_el.get("x"))
-            y = float(curr_el.get("y"))
-            width = float(curr_el.get("width"))
-            height = float(curr_el.get("height"))
-            nodes_bounds[bpmn_element] = {
-                "x": x,
-                "y": y,
-                "width": width,
-                "height": height,
-            }
+        else:
+            continue
 
-    for child in curr_el:
-        bpmn_graph = parse_element(
-            bpmn_graph,
-            counts,
-            child,
-            list(parents) + [child],
-            incoming_dict,
-            outgoing_dict,
-            nodes_dict,
-            nodes_bounds,
-            flow_info,
-            process=process,
-            node=node,
-            bpmn_element=bpmn_element,
-            flow=flow,
-            rec_depth=rec_depth + 1,
+        message = (
+            f"BPMN {flow_type.__name__} {flow_id!r}: {attribute} {reason}"
         )
-    # afterprocessing when the xml tree has been recursively parsed already
-    if rec_depth == 0:
-        # bpmn_graph.set_process_id(process)
-        for seq_flow_id in incoming_dict:
-            if incoming_dict[seq_flow_id][0] in nodes_dict:
-                incoming_dict[seq_flow_id] = (
-                    nodes_dict[incoming_dict[seq_flow_id][0]],
-                    incoming_dict[seq_flow_id][1],
-                    incoming_dict[seq_flow_id][2],
-                    incoming_dict[seq_flow_id][3],
-                    incoming_dict[seq_flow_id][4],
-                )
-        for seq_flow_id in outgoing_dict:
-            if outgoing_dict[seq_flow_id][0] in nodes_dict:
-                outgoing_dict[seq_flow_id] = (
-                nodes_dict[outgoing_dict[seq_flow_id][0]], outgoing_dict[seq_flow_id][1], outgoing_dict[seq_flow_id][2],
-                outgoing_dict[seq_flow_id][3], outgoing_dict[seq_flow_id][4])
+        if flow_type is BPMN.SequenceFlow:
+            raise ValueError(message)
+        warnings.warn(f"{message}. Skipping the flow.", stacklevel=3)
+        return None
 
-        # also supports flows without waypoints
-        flows_without_waypoints = set(flow_info).union(
-            set(outgoing_dict).intersection(set(incoming_dict))
+    flow = flow_type(
+        source, target, id=flow_id or "", name=name, process=process
+    )
+    graph.add_flow(flow)
+    flow.del_waypoints()
+    return flow
+
+
+def _apply_layout(root, nodes, flows, target_namespace):
+    for element in root.iter():
+        tag = _local_name(element, _BPMN_DI)
+        if tag not in ("bpmnshape", "shape", "bpmnedge", "edge"):
+            continue
+        element_id = _reference_id(
+            element, element.get("bpmnElement"), target_namespace
         )
-        for flow_id in flows_without_waypoints:
-            flow_info[flow_id] = []
-
-        for flow_id in flow_info:
-            if flow_id in outgoing_dict and flow_id in incoming_dict:
-                flow = None
-                flow_type = outgoing_dict[flow_id][2]
-
-                if flow_type.endswith("messageflow"):
-                    collaboration_id = None
-                    for par in outgoing_dict[flow_id][4]:
-                        par_tag = str(par.tag).lower()
-                        if par_tag.endswith("collaboration"):
-                            collaboration_id = par.get("id")
-                    flow = BPMN.MessageFlow(
-                        outgoing_dict[flow_id][0],
-                        incoming_dict[flow_id][0],
-                        id=flow_id,
-                        name=outgoing_dict[flow_id][3],
-                        process=collaboration_id,
+        if tag in ("bpmnshape", "shape") and element_id in nodes:
+            node = nodes[element_id]
+            for child in element:
+                if _local_name(child, _DC) == "bounds":
+                    node.set_x(float(child.get("x")))
+                    node.set_y(float(child.get("y")))
+                    node.set_width(float(child.get("width")))
+                    node.set_height(float(child.get("height")))
+                    break
+        elif tag in ("bpmnedge", "edge") and element_id in flows:
+            flow = flows[element_id]
+            flow.del_waypoints()
+            for child in element:
+                if _local_name(child, _DI) == "waypoint":
+                    flow.add_waypoint(
+                        (float(child.get("x")), float(child.get("y")))
                     )
-                elif flow_type.endswith("association"):
-                    flow = BPMN.Association(
-                        outgoing_dict[flow_id][0],
-                        incoming_dict[flow_id][0],
-                        id=flow_id,
-                        name=outgoing_dict[flow_id][3],
-                        process=outgoing_dict[flow_id][1],
-                    )
-                else:
-                    flow = BPMN.SequenceFlow(
-                        outgoing_dict[flow_id][0],
-                        incoming_dict[flow_id][0],
-                        id=flow_id,
-                        name=outgoing_dict[flow_id][3],
-                        process=outgoing_dict[flow_id][1],
-                    )
-
-                if flow is not None:
-                    bpmn_graph.add_flow(flow)
-                    layout.get(flow).del_waypoints()
-                    for waypoint in flow_info[flow_id]:
-                        layout.get(flow).add_waypoint(waypoint)
-
-        for node_id in nodes_bounds:
-            if node_id in nodes_dict:
-                bounds = nodes_bounds[node_id]
-                node = nodes_dict[node_id]
-                layout.get(node).set_x(bounds["x"])
-                layout.get(node).set_y(bounds["y"])
-                layout.get(node).set_width(bounds["width"])
-                layout.get(node).set_height(bounds["height"])
-    return bpmn_graph
 
 
 def import_xml_tree_from_root(root):
-    """
-    Imports a BPMN graph from (the root of) an XML tree
+    """Build a BPMN graph, resolving references after all nodes have been read."""
+    graph = BPMN()
+    target_namespace = root.get("targetNamespace")
+    nodes = {}
+    flow_elements = []
+    declared_flow_ids = set()
+    incoming = {}
+    outgoing = {}
+    graph_ids = set()
 
-    Parameters
-    -------------
-    root
-        Root of the tree
+    def visit(element, process=None, collaboration=None, depth=0):
+        tag = _local_name(element, _BPMN_MODEL)
+        if tag is None or tag in ("documentation", "extensionelements"):
+            return
+        element_id = element.get("id")
 
-    Returns
-    -------------
-    bpmn_graph
-        BPMN graph
-    """
-    bpmn_graph = BPMN()
-    counts = Counts()
-    incoming_dict = {}
-    outgoing_dict = {}
-    nodes_dict = {}
-    nodes_bounds = {}
-    flow_info = {}
+        if element_id is not None and (
+            tag in _NODE_TYPES or tag in _FLOW_TYPES
+        ):
+            if element_id in graph_ids:
+                raise ValueError(
+                    f"Duplicate BPMN graph element ID {element_id!r}"
+                )
+            graph_ids.add(element_id)
 
-    return parse_element(
-        bpmn_graph,
-        counts,
-        root,
-        [],
-        incoming_dict,
-        outgoing_dict,
-        nodes_dict,
-        nodes_bounds,
-        flow_info,
-    )
+        if element_id is not None and tag == "process":
+            process = element_id
+            graph.set_process_id(process)
+            graph.set_name(_name(element))
+        elif tag in _FLOW_TYPES:
+            flow_type = _FLOW_TYPES[tag]
+            flow_process = (
+                collaboration if flow_type is BPMN.MessageFlow else process
+            )
+            flow_elements.append((element, flow_type, flow_process))
+            if element_id is not None:
+                declared_flow_ids.add(element_id)
+        elif element_id is not None and tag in _NODE_TYPES:
+            node = _make_node(
+                element, tag, element_id, process, depth, target_namespace
+            )
+            graph.add_node(node)
+            nodes[element_id] = node
+            for child in element:
+                child_tag = _local_name(child, _BPMN_MODEL)
+                if child_tag in ("incoming", "outgoing"):
+                    flow_id = _reference_id(
+                        child, child.text, target_namespace
+                    )
+                    if flow_id is not None:
+                        hints = (
+                            incoming if child_tag == "incoming" else outgoing
+                        )
+                        hints.setdefault(flow_id, element_id)
+            if isinstance(node, BPMN.SubProcess):
+                process = element_id
+            elif tag == "collaboration":
+                collaboration = element_id
+
+        for child in element:
+            visit(child, process, collaboration, depth + 1)
+
+    visit(root)
+
+    flows = {}
+    for element, flow_type, process in flow_elements:
+        flow_id = element.get("id")
+        source_id = _reference_id(
+            element, element.get("sourceRef"), target_namespace
+        )
+        target_id = _reference_id(
+            element, element.get("targetRef"), target_namespace
+        )
+        if flow_type is BPMN.SequenceFlow:
+            source_id = source_id or outgoing.get(flow_id)
+            target_id = target_id or incoming.get(flow_id)
+        flow = _add_flow(
+            graph,
+            nodes,
+            flow_type,
+            flow_id,
+            _name(element),
+            process,
+            source_id,
+            target_id,
+        )
+        if flow is not None:
+            flows[flow.get_id()] = flow
+
+    # Some exporters express sequence flows only through node references.
+    for flow_id in (incoming.keys() | outgoing.keys()) - declared_flow_ids:
+        if flow_id in graph_ids:
+            raise ValueError(f"Duplicate BPMN graph element ID {flow_id!r}")
+        source_id = outgoing.get(flow_id)
+        target_id = incoming.get(flow_id)
+        process = nodes[source_id or target_id].get_process()
+        flows[flow_id] = _add_flow(
+            graph,
+            nodes,
+            BPMN.SequenceFlow,
+            flow_id,
+            "",
+            process,
+            source_id,
+            target_id,
+        )
+
+    _apply_layout(root, nodes, flows, target_namespace)
+    return graph
 
 
 def apply(path, parameters=None):
-    """
-    Imports a BPMN diagram from a file
-
-    Parameters
-    -------------
-    path
-        Path to the file
-    parameters
-        Parameters of the algorithm
-
-    Returns
-    -------------
-    bpmn_graph
-        BPMN graph
-    """
-    if parameters is None:
-        parameters = {}
+    """Import a BPMN diagram from a file."""
+    from lxml import etree
 
     encoding = exec_utils.get_param_value(
-        Parameters.ENCODING, parameters, None
+        Parameters.ENCODING, parameters or {}, None
     )
-
-    from lxml import etree, objectify
-
     parser = etree.XMLParser(remove_comments=True, encoding=encoding)
-
-    F = open(path, "rb")
-    xml_tree = objectify.parse(F, parser=parser)
-    F.close()
-
-    return import_xml_tree_from_root(xml_tree.getroot())
+    with open(path, "rb") as stream:
+        root = etree.parse(stream, parser=parser).getroot()
+    return import_xml_tree_from_root(root)
 
 
 def import_from_string(bpmn_string, parameters=None):
-    """
-    Imports a BPMN diagram from a string
-
-    Parameters
-    -------------
-    path
-        Path to the file
-    parameters
-        Parameters of the algorithm
-
-    Returns
-    -------------
-    bpmn_graph
-        BPMN graph
-    """
-    if parameters is None:
-        parameters = {}
+    """Import a BPMN diagram from a string or bytes."""
+    from lxml import etree
 
     encoding = exec_utils.get_param_value(
-        Parameters.ENCODING, parameters, constants.DEFAULT_ENCODING
+        Parameters.ENCODING, parameters or {}, constants.DEFAULT_ENCODING
     )
-
-    if type(bpmn_string) is str:
+    if isinstance(bpmn_string, str):
         bpmn_string = bpmn_string.encode(encoding)
-
-    from lxml import etree, objectify
-
-    parser = etree.XMLParser(remove_comments=True)
-    root = objectify.fromstring(bpmn_string, parser=parser)
-
+        parser = etree.XMLParser(remove_comments=True, encoding=encoding)
+    else:
+        parser = etree.XMLParser(remove_comments=True)
+    root = etree.fromstring(bpmn_string, parser=parser)
     return import_xml_tree_from_root(root)

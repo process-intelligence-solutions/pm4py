@@ -291,6 +291,32 @@ class BPMN(object):
                 self, id, name, in_arcs, out_arcs, process=process
             )
 
+    class DataObjectReference(BPMNNode):
+        def __init__(
+            self,
+            id="",
+            name="",
+            in_arcs=None,
+            out_arcs=None,
+            process=None,
+            data_object_ref=None,
+        ):
+            super().__init__(id, name, in_arcs, out_arcs, process)
+            self.data_object_ref = data_object_ref
+
+    class DataStoreReference(BPMNNode):
+        def __init__(
+            self,
+            id="",
+            name="",
+            in_arcs=None,
+            out_arcs=None,
+            process=None,
+            data_store_ref=None,
+        ):
+            super().__init__(id, name, in_arcs, out_arcs, process)
+            self.data_store_ref = data_store_ref
+
     class Event(BPMNNode):
         def __init__(
             self, id="", name="", in_arcs=None, out_arcs=None, process=None

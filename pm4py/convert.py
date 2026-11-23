@@ -221,6 +221,7 @@ def convert_to_petri_net(
         - If converting from a BPMN, ProcessTree, HeuristicsNet, GeneticMatrix, or POWL: a single object of the respective type.
         - If converting from a DFG: a dictionary representing the DFG, followed by lists of start and end activities.
     :return: A tuple of (``PetriNet``, ``Marking``, ``Marking``).
+    :raises ValueError: If a BPMN sequence flow connects to a missing or unsupported node.
 
     .. code-block:: python3
 

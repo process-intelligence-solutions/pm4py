@@ -267,9 +267,14 @@ def read_bpmn(
     """
     Reads a BPMN model from a `.bpmn` file.
 
+    Data object and data store references are represented as graph nodes.
+    Associations and message flows with unresolved endpoints are skipped with a warning.
+
     :param file_path: Path/URI to the BPMN model file.
     :param encoding: Encoding to be used (default: `utf-8`).
     :rtype: `BPMN`
+    :raises ValueError: If graph element IDs are duplicated or a sequence flow
+        has an unresolved or invalid endpoint.
 
     .. code-block:: python3
 

@@ -200,13 +200,24 @@ def get_xml_string(bpmn_graph, parameters=None):
 
     for node in bpmn_graph.get_nodes():
         process = process_process[node.get_process()]
+        task = None
 
         if isinstance(node, BPMN.TextAnnotation):
-            annotation = ET.SubElement(
+            task = ET.SubElement(
                 process, "bpmn:textAnnotation", {"id": node.get_id()}
             )
-            text = ET.SubElement(annotation, "bpmn:text")
+            text = ET.SubElement(task, "bpmn:text")
             text.text = node.text
+        elif isinstance(node, BPMN.DataObjectReference):
+            attributes = {"id": node.get_id(), "name": node.get_name()}
+            if node.data_object_ref is not None:
+                attributes["dataObjectRef"] = node.data_object_ref
+            task = ET.SubElement(process, "bpmn:dataObjectReference", attributes)
+        elif isinstance(node, BPMN.DataStoreReference):
+            attributes = {"id": node.get_id(), "name": node.get_name()}
+            if node.data_store_ref is not None:
+                attributes["dataStoreRef"] = node.data_store_ref
+            task = ET.SubElement(process, "bpmn:dataStoreReference", attributes)
         elif isinstance(node, BPMN.StartEvent):
             isInterrupting = "true" if node.get_isInterrupting() else "false"
             parallelMultiple = (
@@ -315,14 +326,16 @@ def get_xml_string(bpmn_graph, parameters=None):
                 },
             )
 
-        if enable_incoming_outgoing_exporting:
+        if enable_incoming_outgoing_exporting and task is not None:
             for in_arc in node.get_in_arcs():
-                arc_xml = ET.SubElement(task, "bpmn:incoming")
-                arc_xml.text = "id" + str(in_arc.get_id())
+                if isinstance(in_arc, BPMN.SequenceFlow):
+                    arc_xml = ET.SubElement(task, "bpmn:incoming")
+                    arc_xml.text = "id" + str(in_arc.get_id())
 
             for out_arc in node.get_out_arcs():
-                arc_xml = ET.SubElement(task, "bpmn:outgoing")
-                arc_xml.text = "id" + str(out_arc.get_id())
+                if isinstance(out_arc, BPMN.SequenceFlow):
+                    arc_xml = ET.SubElement(task, "bpmn:outgoing")
+                    arc_xml.text = "id" + str(out_arc.get_id())
 
     for flow in bpmn_graph.get_flows():
         process = process_process[flow.get_process()]
