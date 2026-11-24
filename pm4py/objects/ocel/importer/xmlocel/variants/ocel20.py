@@ -20,15 +20,15 @@ Website: https://processintelligence.solutions
 Contact: info@processintelligence.solutions
 '''
 from enum import Enum
+from itertools import groupby
 from typing import Optional, Dict, Any
 
-import pandas as pd
-from lxml import etree, objectify
+from lxml import etree
 
 from pm4py.objects.ocel import constants
+from pm4py.objects.ocel.importer.attribute_time import object_change_time
 from pm4py.objects.ocel.obj import OCEL
 from pm4py.objects.ocel.util import compression
-from pm4py.objects.ocel.util import filtering_utils
 from pm4py.util import exec_utils, dt_parsing, pandas_utils
 from pm4py.objects.ocel.util import ocel_consistency
 
@@ -45,14 +45,20 @@ class Parameters(Enum):
     ENCODING = "encoding"
 
 
-def parse_xml(value, tag_str_lower, parser):
-    if "float" in tag_str_lower:
-        if value == "null":
-            return 0
+def parse_xml(value, attribute_type, parser):
+    if attribute_type in ("string", None):
+        return value if value is not None else ""
+    if value in (None, "null"):
+        return None
+    if attribute_type in ("float", "double"):
         return float(value)
-    elif "date" in tag_str_lower:
+    if attribute_type in ("int", "integer"):
+        return int(value)
+    if attribute_type == "boolean":
+        return {"true": True, "false": False, "1": True, "0": False}.get(value.strip().lower(), value)
+    if attribute_type in ("date", "time"):
         return embed_date_parser(parser.apply, value)
-    return str(value)
+    return value
 
 
 def embed_date_parser(date_parser, x):
@@ -65,6 +71,24 @@ def embed_date_parser(date_parser, x):
             return parse(x)
         except BaseException:
             return parse(x, fuzzy=True)
+
+
+def _iter_xml_rows(file_path, encoding):
+    """Yield records beneath the log's top-level sections and free them after use."""
+    tags = ("{*}object-type", "{*}event-type", "{*}object", "{*}event")
+    with compression.open_binary(file_path, "rb") as source:
+        for _, element in etree.iterparse(
+            source, events=("end",), tag=tags, encoding=encoding, remove_comments=True
+        ):
+            section = element.getparent()
+            root = section.getparent() if section is not None else None
+            # Some logs use <object> for relationship entries nested inside records.
+            if root is None or root.getparent() is not None:
+                continue
+            yield element
+            element.clear()
+            while element.getprevious() is not None:
+                del section[0]
 
 
 def apply(file_path: str, parameters: Optional[Dict[Any, Any]] = None) -> OCEL:
@@ -98,9 +122,6 @@ def apply(file_path: str, parameters: Optional[Dict[Any, Any]] = None) -> OCEL:
     object_type_column = exec_utils.get_param_value(
         Parameters.OBJECT_TYPE, parameters, constants.DEFAULT_OBJECT_TYPE
     )
-    internal_index_column = exec_utils.get_param_value(
-        Parameters.INTERNAL_INDEX, parameters, constants.DEFAULT_INTERNAL_INDEX
-    )
     qualifier_field = exec_utils.get_param_value(
         Parameters.QUALIFIER, parameters, constants.DEFAULT_QUALIFIER
     )
@@ -111,18 +132,12 @@ def apply(file_path: str, parameters: Optional[Dict[Any, Any]] = None) -> OCEL:
 
     date_parser = dt_parsing.parser.get()
 
-    parser = etree.XMLParser(remove_comments=True, encoding=encoding)
-
-    with compression.open_binary(file_path, "rb") as F:
-        tree = objectify.parse(F, parser=parser)
-
-    root = tree.getroot()
-
     object_type_attributes = {}
     event_type_attributes = {}
 
-    for child in root:
-        if child.tag.endswith("object-types"):
+    rows = _iter_xml_rows(file_path, encoding)
+    for section, child in groupby(rows, key=lambda element: element.getparent().tag):
+        if section.endswith("object-types"):
             for object_type in child:
                 object_type_name = object_type.get("name")
                 object_type_attributes[object_type_name] = {}
@@ -133,7 +148,7 @@ def apply(file_path: str, parameters: Optional[Dict[Any, Any]] = None) -> OCEL:
                         object_type_attributes[object_type_name][
                             attribute_name
                         ] = attribute_type
-        elif child.tag.endswith("event-types"):
+        elif section.endswith("event-types"):
             for event_type in child:
                 event_type_name = event_type.get("name")
                 event_type_attributes[event_type_name] = {}
@@ -144,7 +159,7 @@ def apply(file_path: str, parameters: Optional[Dict[Any, Any]] = None) -> OCEL:
                         event_type_attributes[event_type_name][
                             attribute_name
                         ] = attribute_type
-        elif child.tag.endswith("objects"):
+        elif section.endswith("objects"):
             object_id = None
             object_type = None
 
@@ -157,8 +172,6 @@ def apply(file_path: str, parameters: Optional[Dict[Any, Any]] = None) -> OCEL:
                     object_type_column: object_type,
                 }
                 obj_type_dict[object_id] = object_type
-                obj_attrs = {}
-
                 for child2 in object:
                     if child2.tag.endswith("objects"):
                         for target_object in child2:
@@ -175,7 +188,7 @@ def apply(file_path: str, parameters: Optional[Dict[Any, Any]] = None) -> OCEL:
                     elif child2.tag.endswith("attributes"):
                         for attribute in child2:
                             attribute_name = attribute.get("name")
-                            attribute_time = attribute.get("time")
+                            attribute_time = object_change_time(attribute.get("time"))
                             try:
                                 attribute_type = object_type_attributes[
                                     object_type
@@ -185,40 +198,22 @@ def apply(file_path: str, parameters: Optional[Dict[Any, Any]] = None) -> OCEL:
                             attribute_text = parse_xml(
                                 attribute.text, attribute_type, date_parser
                             )
-                            if (
-                                attribute_time == "0"
-                                or attribute_time.startswith(
-                                    "1970-01-01T00:00:00"
-                                )
-                            ):
-                                time_key = None
-                                time_val = attribute_time
+                            if attribute_time is None:
+                                obj_dict[attribute_name] = attribute_text
                             else:
-                                time_val = embed_date_parser(
-                                    date_parser.apply, attribute_time
+                                object_changes_list.append(
+                                    {
+                                        object_id_column: object_id,
+                                        object_type_column: object_type,
+                                        attribute_name: attribute_text,
+                                        changed_field: attribute_name,
+                                        event_timestamp_column: attribute_time,
+                                    }
                                 )
-                                time_key = time_val
-
-                            obj_attrs.setdefault(attribute_name, []).append(
-                                (time_key, time_val, attribute_text)
-                            )
-
-                for attr_name, entries in obj_attrs.items():
-                    base_time_key, base_time_val, base_value = entries[0]
-                    obj_dict[attr_name] = base_value
-                    for time_key, time_val, value in entries[1:]:
-                        obj_change_dict = {
-                            object_id_column: object_id,
-                            object_type_column: object_type,
-                            attr_name: value,
-                            changed_field: attr_name,
-                            event_timestamp_column: time_val,
-                        }
-                        object_changes_list.append(obj_change_dict)
 
                 objects_list.append(obj_dict)
 
-        elif child.tag.endswith("events"):
+        elif section.endswith("events"):
             event_id = None
             event_type = None
             event_time = None
@@ -271,12 +266,12 @@ def apply(file_path: str, parameters: Optional[Dict[Any, Any]] = None) -> OCEL:
                 events_list.append(ev_dict)
 
     events_list = (
-        pandas_utils.instantiate_dataframe(events_list)
+        pandas_utils.instantiate_dataframe(events_list, dtype="object")
         if events_list
         else None
     )
     objects_list = (
-        pandas_utils.instantiate_dataframe(objects_list)
+        pandas_utils.instantiate_dataframe(objects_list, dtype="object")
         if objects_list
         else None
     )
@@ -289,35 +284,26 @@ def apply(file_path: str, parameters: Optional[Dict[Any, Any]] = None) -> OCEL:
         pandas_utils.instantiate_dataframe(o2o_list) if o2o_list else None
     )
     object_changes_list = (
-        pandas_utils.instantiate_dataframe(object_changes_list)
+        pandas_utils.instantiate_dataframe(object_changes_list, dtype="object")
         if object_changes_list
         else None
     )
-    globals = {}
-
-    events_list[internal_index_column] = events_list.index
-    relations_list[internal_index_column] = relations_list.index
-
-    events_list = events_list.sort_values(
-        [event_timestamp_column, internal_index_column]
-    )
-    relations_list = relations_list.sort_values(
-        [event_timestamp_column, internal_index_column]
-    )
-
-    del events_list[internal_index_column]
-    del relations_list[internal_index_column]
+    for table in (events_list, relations_list, object_changes_list):
+        if table is not None:
+            table[event_timestamp_column] = table[event_timestamp_column].infer_objects()
+            table.sort_values(event_timestamp_column, kind="stable", inplace=True)
 
     ocel = OCEL(
         events=events_list,
         objects=objects_list,
         relations=relations_list,
-        globals=globals,
+        globals={
+            constants.OCEL_EVTYPES_KEY: event_type_attributes,
+            constants.OCEL_OBJTYPES_KEY: object_type_attributes,
+        },
         o2o=o2o_list,
         object_changes=object_changes_list,
         parameters=parameters,
     )
     ocel = ocel_consistency.apply(ocel, parameters=parameters)
-    ocel = filtering_utils.propagate_relations_filtering(ocel)
-
-    return ocel
+    return ocel_consistency.remove_dangling_relationships(ocel)

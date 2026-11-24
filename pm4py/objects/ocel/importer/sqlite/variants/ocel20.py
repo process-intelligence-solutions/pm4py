@@ -27,7 +27,6 @@ from pm4py.objects.ocel.obj import OCEL
 from pm4py.util import exec_utils, pandas_utils
 import pandas as pd
 from pm4py.objects.ocel.util import ocel_consistency
-from pm4py.objects.ocel.util import filtering_utils
 from pm4py.objects.ocel.validation import ocel20_rel_validation
 from pm4py.util import constants as pm4_constants
 from pm4py.objects.log.util import dataframe_utils
@@ -68,6 +67,18 @@ def _quote_identifier(identifier: str) -> str:
     return '"' + identifier.replace('"', '""') + '"'
 
 
+def _attribute_types(conn, prefix, type_map):
+    schemas = {}
+    for name, safe_name in type_map.items():
+        table = _quote_identifier(prefix + safe_name)
+        schemas[name] = {
+            row[1]: row[2]
+            for row in conn.execute(f"PRAGMA table_info({table})")
+            if row[1] not in {"ocel_id", "ocel_time", "ocel_changed_field", "ocel_change_field"}
+        }
+    return schemas
+
+
 def apply(file_path: str, parameters: Optional[Dict[Any, Any]] = None):
     if parameters is None:
         parameters = {}
@@ -98,19 +109,12 @@ def apply(file_path: str, parameters: Optional[Dict[Any, Any]] = None):
     object_type = exec_utils.get_param_value(
         Parameters.OBJECT_TYPE, parameters, constants.DEFAULT_OBJECT_TYPE
     )
-    internal_index = exec_utils.get_param_value(
-        Parameters.INTERNAL_INDEX, parameters, constants.DEFAULT_INTERNAL_INDEX
-    )
     qualifier_field = exec_utils.get_param_value(
         Parameters.QUALIFIER, parameters, constants.DEFAULT_QUALIFIER
     )
     changed_field = exec_utils.get_param_value(
         Parameters.CHANGED_FIELD, parameters, constants.DEFAULT_CHNGD_FIELD
     )
-    cumcount_field = exec_utils.get_param_value(
-        Parameters.CUMCOUNT, parameters, "@@cumcount"
-    )
-
     if validation:
         satisfied, unsatisfied = ocel20_rel_validation.apply(file_path)
         if unsatisfied and except_if_invalid:
@@ -142,6 +146,10 @@ def apply(file_path: str, parameters: Optional[Dict[Any, Any]] = None):
     objects_type_map = {
         x["ocel_type"]: x["ocel_type_map"] for x in OBJECT_CORR_TYPE
     }
+    schemas = {
+        constants.OCEL_EVTYPES_KEY: _attribute_types(conn, "event_", events_type_map),
+        constants.OCEL_OBJTYPES_KEY: _attribute_types(conn, "object_", objects_type_map),
+    }
 
     event_types_coll = []
     object_types_coll = []
@@ -149,7 +157,7 @@ def apply(file_path: str, parameters: Optional[Dict[Any, Any]] = None):
     for act in etypes:
         act_red = events_type_map[act]
         table_name = _quote_identifier("event_" + act_red)
-        df = pd.read_sql(f"SELECT * FROM {table_name}", conn)
+        df = pd.read_sql(f"SELECT * FROM {table_name}", conn, dtype_backend="numpy_nullable")
         df = df.rename(
             columns={"ocel_id": event_id, "ocel_time": event_timestamp}
         )
@@ -159,14 +167,19 @@ def apply(file_path: str, parameters: Optional[Dict[Any, Any]] = None):
     for ot in otypes:
         ot_red = objects_type_map[ot]
         table_name = _quote_identifier("object_" + ot_red)
-        df = pd.read_sql(f"SELECT * FROM {table_name}", conn)
+        df = pd.read_sql(f"SELECT * FROM {table_name}", conn, dtype_backend="numpy_nullable")
+        if "ocel_changed_field" not in df and "ocel_change_field" in df:
+            df = df.rename(columns={"ocel_change_field": "ocel_changed_field"})
         df = df.rename(
             columns={"ocel_id": object_id, "ocel_time": event_timestamp}
         )
         df[object_id] = _normalize_id_series(df[object_id])
         object_types_coll.append(df)
 
-    event_types_coll = pandas_utils.concat(event_types_coll)
+    event_types_coll = (
+        pandas_utils.concat(event_types_coll, ignore_index=True)
+        if event_types_coll else pd.DataFrame(columns=[event_id, event_timestamp])
+    )
     event_types_coll[event_activity] = event_types_coll[event_id].map(
         events_id_type
     )
@@ -175,7 +188,10 @@ def apply(file_path: str, parameters: Optional[Dict[Any, Any]] = None):
         timest_format=pm4_constants.DEFAULT_TIMESTAMP_PARSE_FORMAT,
         timest_columns=[event_timestamp],
     )
-    object_types_coll = pandas_utils.concat(object_types_coll)
+    object_types_coll = (
+        pandas_utils.concat(object_types_coll, ignore_index=True)
+        if object_types_coll else pd.DataFrame(columns=[object_id])
+    )
     object_types_coll[object_type] = object_types_coll[object_id].map(
         objects_id_type
     )
@@ -189,33 +205,25 @@ def apply(file_path: str, parameters: Optional[Dict[Any, Any]] = None):
     events_timestamp = {
         x[event_id]: x[event_timestamp] for x in events_timestamp
     }
-    object_types_coll[cumcount_field] = object_types_coll.groupby(
-        object_id
-    ).cumcount()
-
     if changed_field in object_types_coll:
-        objects = object_types_coll[object_types_coll[changed_field].isna()]
-        object_changes = object_types_coll[
-            ~object_types_coll[changed_field].isna()
-        ]
-        if len(objects) == 0:
-            objects = object_types_coll[object_types_coll[cumcount_field] == 0]
-            object_changes = object_types_coll[
-                object_types_coll[cumcount_field] > 0
-            ]
-        if len(object_changes) == 0:
-            object_changes = None
-        else:
-            object_changes = object_changes.copy()
-        objects = objects.copy()
-        del objects[changed_field]
+        initial = object_types_coll[changed_field].isna() | object_types_coll[changed_field].eq("")
+        objects = object_types_coll.loc[initial].drop(columns=[changed_field])
+        object_changes = object_types_coll.loc[~initial].copy() if not initial.all() else None
     else:
         objects = object_types_coll.copy()
         object_changes = None
 
     if event_timestamp in objects:
         del objects[event_timestamp]
-    del objects[cumcount_field]
+    # Details are optional when there are no initial values for an object.
+    declared_with_initial_values = set(objects[object_id])
+    missing_objects = [
+        {object_id: oid, object_type: kind}
+        for oid, kind in objects_id_type.items()
+        if oid not in declared_with_initial_values
+    ]
+    if missing_objects:
+        objects = pandas_utils.concat([objects, pd.DataFrame(missing_objects)], ignore_index=True)
 
     E2O = pd.read_sql("SELECT * FROM event_object", conn)
     E2O = E2O.rename(
@@ -249,16 +257,8 @@ def apply(file_path: str, parameters: Optional[Dict[Any, Any]] = None):
 
     conn.close()
 
-    event_types_coll[internal_index] = event_types_coll.index
-    E2O[internal_index] = E2O.index
-
-    event_types_coll = event_types_coll.sort_values(
-        [event_timestamp, internal_index]
-    )
-    E2O = E2O.sort_values([event_timestamp, internal_index])
-
-    del event_types_coll[internal_index]
-    del E2O[internal_index]
+    event_types_coll = event_types_coll.sort_values(event_timestamp, kind="stable")
+    E2O = E2O.sort_values(event_timestamp, kind="stable")
 
     if object_changes is not None:
         object_changes = dataframe_utils.convert_timestamp_columns_in_df(
@@ -266,11 +266,7 @@ def apply(file_path: str, parameters: Optional[Dict[Any, Any]] = None):
             timest_format=pm4_constants.DEFAULT_TIMESTAMP_PARSE_FORMAT,
             timest_columns=[event_timestamp],
         )
-        object_changes[internal_index] = object_changes.index
-        object_changes = object_changes.sort_values(
-            [event_timestamp, internal_index]
-        )
-        del object_changes[internal_index]
+        object_changes = object_changes.sort_values(event_timestamp, kind="stable")
 
     ocel = OCEL(
         events=event_types_coll,
@@ -278,10 +274,9 @@ def apply(file_path: str, parameters: Optional[Dict[Any, Any]] = None):
         relations=E2O,
         object_changes=object_changes,
         o2o=O2O,
+        globals=schemas,
         parameters=parameters,
     )
 
     ocel = ocel_consistency.apply(ocel, parameters=parameters)
-    ocel = filtering_utils.propagate_relations_filtering(ocel, parameters=parameters)
-
-    return ocel
+    return ocel_consistency.remove_dangling_relationships(ocel)

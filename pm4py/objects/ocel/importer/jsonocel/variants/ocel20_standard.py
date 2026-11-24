@@ -22,7 +22,8 @@ Contact: info@processintelligence.solutions
 from pm4py.util import exec_utils, dt_parsing
 from pm4py.objects.ocel.obj import OCEL
 from typing import Optional, Dict, Any
-from pm4py.objects.ocel.util import filtering_utils
+from pm4py.objects.ocel import constants
+from pm4py.objects.ocel.importer.attribute_time import object_change_time
 from pm4py.objects.ocel.util import ocel_consistency
 from pm4py.objects.ocel.importer.jsonocel.variants import classic
 from pm4py.objects.ocel.util import compression
@@ -38,10 +39,10 @@ class Parameters(Enum):
 def _parse_attr_value(value, attr_type, parser):
     if value is None:
         return None
-    if isinstance(value, str) and value.strip().lower() == "null":
-        return None
 
     attr_type = "" if attr_type is None else str(attr_type).lower()
+    if attr_type not in ("", "string") and isinstance(value, str) and value.strip().lower() == "null":
+        return None
     if "date" in attr_type or "time" in attr_type:
         try:
             return parser.apply(value)
@@ -65,8 +66,7 @@ def _parse_attr_value(value, attr_type, parser):
     if "bool" in attr_type:
         if isinstance(value, str):
             lowered = value.strip().lower()
-            if lowered in ("true", "false"):
-                return lowered == "true"
+            return {"true": True, "false": False, "1": True, "0": False}.get(lowered, value)
         return bool(value)
     return value
 
@@ -133,11 +133,11 @@ def apply(file_path: str, parameters: Optional[Dict[Any, Any]] = None) -> OCEL:
         dct["ocel:typedOmap"] = []
         if "relationships" in eve and eve["relationships"]:
             dct["ocel:typedOmap"] = [
-                {"ocel:oid": x["objectId"], "ocel:qualifier": x["qualifier"]}
+                {"ocel:oid": x["objectId"], "ocel:qualifier": x.get("qualifier")}
                 for x in eve["relationships"]
             ]
         dct["ocel:omap"] = list(
-            set(x["ocel:oid"] for x in dct["ocel:typedOmap"])
+            dict.fromkeys(x["ocel:oid"] for x in dct["ocel:typedOmap"])
         )
         legacy_obj["ocel:events"][eve["id"]] = dct
 
@@ -147,48 +147,28 @@ def apply(file_path: str, parameters: Optional[Dict[Any, Any]] = None) -> OCEL:
         dct["ocel:ovmap"] = {}
         if "attributes" in obj and obj["attributes"]:
             type_map = object_attr_types.get(obj["type"], {})
-            attrs_by_name = {}
             for x in obj["attributes"]:
+                name = x["name"]
                 value = _parse_attr_value(
-                    x["value"], type_map.get(x["name"]), parser
+                    x["value"], type_map.get(name), parser
                 )
-                time_raw = x.get("time")
-                if time_raw is None:
-                    time_key = None
-                    time_val = None
-                elif str(time_raw).startswith("1970-01-01T00:00:00") or str(
-                    time_raw
-                ) == "0":
-                    time_key = None
-                    time_val = time_raw
+                time = object_change_time(x.get("time"))
+                if time is None:
+                    dct["ocel:ovmap"][name] = value
                 else:
-                    try:
-                        time_val = parser.apply(time_raw)
-                        time_key = time_val
-                    except BaseException:
-                        time_val = time_raw
-                        time_key = time_raw
-                attrs_by_name.setdefault(x["name"], []).append(
-                    (time_key, time_val, value)
-                )
-
-            for name, entries in attrs_by_name.items():
-                base_time_key, base_time_val, base_value = entries[0]
-                dct["ocel:ovmap"][name] = base_value
-                for time_key, time_val, value in entries[1:]:
                     legacy_obj["ocel:objectChanges"].append(
                         {
                             "ocel:oid": obj["id"],
                             "ocel:type": obj["type"],
                             "ocel:field": name,
                             name: value,
-                            "ocel:timestamp": time_val,
+                            "ocel:timestamp": time,
                         }
                     )
         dct["ocel:o2o"] = []
         if "relationships" in obj and obj["relationships"]:
             dct["ocel:o2o"] = [
-                {"ocel:oid": x["objectId"], "ocel:qualifier": x["qualifier"]}
+                {"ocel:oid": x["objectId"], "ocel:qualifier": x.get("qualifier")}
                 for x in obj["relationships"]
             ]
         legacy_obj["ocel:objects"][obj["id"]] = dct
@@ -197,11 +177,11 @@ def apply(file_path: str, parameters: Optional[Dict[Any, Any]] = None) -> OCEL:
     legacy_obj["ocel:global-event"] = {}
     legacy_obj["ocel:global-object"] = {}
 
-    log = classic.get_base_ocel(legacy_obj, parameters=parameters)
+    log = classic.get_base_ocel(
+        legacy_obj, parameters=parameters, preserve_attribute_types=True
+    )
+    log.globals[constants.OCEL_EVTYPES_KEY] = event_attr_types
+    log.globals[constants.OCEL_OBJTYPES_KEY] = object_attr_types
 
     log = ocel_consistency.apply(log, parameters=parameters)
-    log = filtering_utils.propagate_relations_filtering(
-        log, parameters=parameters
-    )
-
-    return log
+    return ocel_consistency.remove_dangling_relationships(log)

@@ -26,6 +26,23 @@ import warnings
 from pm4py.util import pandas_utils
 
 
+def remove_dangling_relationships(ocel: OCEL) -> OCEL:
+    """Keep declared events and objects, removing links to undeclared IDs."""
+    event_id = ocel.event_id_column
+    object_id = ocel.object_id_column
+    event_ids = ocel.events[event_id]
+    object_ids = ocel.objects[object_id]
+    ocel.relations = ocel.relations[
+        ocel.relations[event_id].isin(event_ids)
+        & ocel.relations[object_id].isin(object_ids)
+    ]
+    ocel.o2o = ocel.o2o[
+        ocel.o2o[object_id].isin(object_ids)
+        & ocel.o2o[object_id + "_2"].isin(object_ids)
+    ]
+    return ocel
+
+
 def apply(ocel: OCEL, parameters: Optional[Dict[Any, Any]] = None) -> OCEL:
     """
     Forces the consistency of the OCEL, ensuring that the event/object identifier,

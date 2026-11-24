@@ -31,6 +31,7 @@ import re
 import pandas as pd
 
 from pm4py.objects.ocel import constants
+from pm4py.objects.ocel.importer.csv_rows import read_csv_rows
 from pm4py.objects.ocel.obj import OCEL
 from pm4py.objects.ocel.util import ocel_consistency
 from pm4py.util import exec_utils, constants as pm4_constants, pandas_utils
@@ -218,9 +219,9 @@ def _register_object_type(
     object_id_type[object_id] = object_type
 
 
-def _instantiate_dataframe(records: List[Dict[str, Any]], columns: List[str]):
+def _instantiate_dataframe(records: List[Dict[str, Any]], columns: List[str], dtype=None):
     if records:
-        return pandas_utils.instantiate_dataframe(records)
+        return pandas_utils.instantiate_dataframe(records, dtype=dtype)
     return pandas_utils.instantiate_dataframe({column: [] for column in columns})
 
 
@@ -331,8 +332,13 @@ def _try_parse_float(values):
     for value in values:
         if isinstance(value, bool):
             return None
-        if isinstance(value, (int, float)) and not isinstance(value, bool):
-            parsed_value = float(value)
+        if isinstance(value, (int, float)):
+            try:
+                parsed_value = float(value)
+            except OverflowError:
+                return None
+            if parsed_value != value:
+                return None
         elif isinstance(value, str):
             parsed_value = _parse_canonical_float(value)
             if parsed_value is None:
@@ -395,7 +401,7 @@ def _infer_column_type(df, column):
     if len(df) == 0 or column not in df.columns:
         return df
     df = df.copy()
-    df[column] = _infer_values(df[column].tolist())
+    df[column] = pd.Series(_infer_values(df[column].tolist()), index=df.index, dtype=object)
     return df
 
 
@@ -466,7 +472,7 @@ def _infer_object_attribute_types(objects_df, object_changes_df, object_type_col
 def _read_rfc4180(file_path: str, encoding: str) -> pd.DataFrame:
     try:
         with open(file_path, "r", encoding=encoding, newline="") as file:
-            rows = list(csv.reader(file, dialect="excel", strict=True))
+            rows = read_csv_rows(file)
     except csv.Error as exc:
         raise ValueError("Invalid RFC 4180 CSV syntax.") from exc
 
@@ -552,9 +558,6 @@ def apply(
     )
     object_type_column = exec_utils.get_param_value(
         Parameters.OBJECT_TYPE, parameters, constants.DEFAULT_OBJECT_TYPE
-    )
-    internal_index_column = exec_utils.get_param_value(
-        Parameters.INTERNAL_INDEX, parameters, constants.DEFAULT_INTERNAL_INDEX
     )
     qualifier_column = exec_utils.get_param_value(
         Parameters.QUALIFIER, parameters, constants.DEFAULT_QUALIFIER
@@ -803,11 +806,12 @@ def apply(
                 object_changes.append(change)
 
     objects_df = _instantiate_dataframe(
-        list(object_records_by_id.values()), [object_id_column, object_type_column]
+        list(object_records_by_id.values()), [object_id_column, object_type_column], dtype=object
     )
     object_changes_df = _instantiate_dataframe(
         object_changes,
         [object_id_column, object_type_column, event_timestamp_column, changed_field_column],
+        dtype=object,
     )
     objects_df, object_changes_df = _infer_object_attribute_types(
         objects_df,
@@ -821,22 +825,9 @@ def apply(
         },
     )
 
-    if len(events_df) > 0:
-        events_df[internal_index_column] = events_df.index
-        events_df = events_df.sort_values([event_timestamp_column, internal_index_column])
-        del events_df[internal_index_column]
-
-    if len(relations_df) > 0:
-        relations_df[internal_index_column] = relations_df.index
-        relations_df = relations_df.sort_values([event_timestamp_column, internal_index_column])
-        del relations_df[internal_index_column]
-
-    if len(object_changes_df) > 0:
-        object_changes_df[internal_index_column] = object_changes_df.index
-        object_changes_df = object_changes_df.sort_values(
-            [event_timestamp_column, internal_index_column]
-        )
-        del object_changes_df[internal_index_column]
+    object_changes_df[event_timestamp_column] = object_changes_df[event_timestamp_column].infer_objects()
+    for table in (events_df, relations_df, object_changes_df):
+        table.sort_values(event_timestamp_column, kind="stable", inplace=True)
 
     ocel = OCEL(
         events=events_df,

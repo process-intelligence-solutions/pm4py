@@ -20,6 +20,7 @@ Website: https://processintelligence.solutions
 Contact: info@processintelligence.solutions
 '''
 from typing import Optional, Dict, Any
+from pm4py.objects.ocel.importer.jsonocel.variants import ocel20_standard
 from pm4py.objects.ocel.obj import OCEL
 from pm4py.objects.ocel.util import compression
 from pm4py.util.rustxes_utils import import_rustxes_backend
@@ -47,4 +48,9 @@ def apply(file_path: str, parameters: Optional[Dict[Any, Any]] = None) -> OCEL:
     rustxes_backend, _ = import_rustxes_backend()
 
     with compression.decompressed_path(file_path) as path:
-        return rustxes_backend.import_ocel_json_pm4py(path)
+        try:
+            return rustxes_backend.import_ocel_json_pm4py(path)
+        except OSError:
+            # Some published logs use null qualifiers or values. The Python
+            # importer also accepts these legacy OCEL 2 serializations.
+            return ocel20_standard.apply(path, parameters)

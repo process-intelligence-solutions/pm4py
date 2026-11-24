@@ -37,7 +37,7 @@ enabled_tests = [
     "OcCausalNetSemanticsTest", "OcCausalNetSimulationTest", "OcCausalNetTest",
     "OcpnSemanticsTest", "OcpnSimulationTest", "OcpnTest", "LocalProcessModelsTest",
     "AdditionalCoverageTest", "ApproxAlignmentTest", "TestGeneticMiner",
-    "Ocel2CsvTest", "Ocel2GzipTest", "OcelOlapTest", "SimulationTest",
+    "Ocel2CsvTest", "Ocel2GzipTest", "Ocel2ImportFidelityTest", "OcelOlapTest", "SimulationTest",
     "TraceEncodingsTest", "SplitMinerInternalsTest", "ExtendedCoverageTest",
     "CoverageRegressionTest", "ModelUtilitiesCoverageTest",
     "GraphAnalysisCoverageTest", "LogAlgorithmsCoverageTest",
@@ -509,6 +509,14 @@ if "Ocel2CsvTest" in enabled_tests:
         suite.addTests(loader.loadTestsFromTestCase(Ocel2CsvTest))
     except Exception:
         print("Ocel2CsvTest import failed!")
+        failed += 1
+
+if "Ocel2ImportFidelityTest" in enabled_tests:
+    try:
+        from tests.ocel2_import_fidelity_test import Ocel2ImportFidelityTest
+        suite.addTests(loader.loadTestsFromTestCase(Ocel2ImportFidelityTest))
+    except Exception:
+        print("Ocel2ImportFidelityTest import failed!")
         failed += 1
 
 if "Ocel2GzipTest" in enabled_tests:

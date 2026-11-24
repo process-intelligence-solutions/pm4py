@@ -20,6 +20,7 @@ Website: https://processintelligence.solutions
 Contact: info@processintelligence.solutions
 '''
 import ast
+import json
 from enum import Enum
 from typing import Optional, Dict, Any
 
@@ -77,6 +78,29 @@ def safe_parse_list(value):
     return []
 
 
+def _disambiguate_typed_objects(objects, relations, object_id, object_type):
+    collisions = objects[object_id].duplicated(keep=False)
+    if not collisions.any():
+        return
+
+    used_ids = set(objects[object_id])
+    originals = set(objects.loc[collisions, object_id])
+    replacements = {}
+    columns = [object_id, object_type]
+    for identifier, kind in objects.loc[collisions, columns].itertuples(index=False, name=None):
+        replacement = "ocel:typed-object:" + json.dumps([kind, identifier], ensure_ascii=False)
+        while replacement in used_ids:
+            replacement += ":"
+        replacements[identifier, kind] = replacement
+        used_ids.add(replacement)
+
+    objects.loc[collisions, "ocel:original-object-id"] = objects.loc[collisions, object_id]
+    for table, mask in ((objects, collisions), (relations, relations[object_id].isin(originals))):
+        table.loc[mask, object_id] = [
+            replacements[pair] for pair in table.loc[mask, columns].itertuples(index=False, name=None)
+        ]
+
+
 def get_ocel_from_extended_table(
         df: pd.DataFrame,
         objects_df: Optional[pd.DataFrame] = None,
@@ -125,8 +149,20 @@ def get_ocel_from_extended_table(
         Parameters.INTERNAL_INDEX, parameters, constants.DEFAULT_INTERNAL_INDEX
     )
 
-    # Parse timestamp column upfront in the original DataFrame
-    df[event_timestamp] = pandas_utils.dataframe_column_string_to_datetime(df[event_timestamp], format=pm4_constants.DEFAULT_TIMESTAMP_PARSE_FORMAT)
+    # Preserve homogeneous timestamps and normalize inconsistent offsets to UTC.
+    timestamp_format = pm4_constants.DEFAULT_TIMESTAMP_PARSE_FORMAT
+    try:
+        timestamps = pandas_utils.dataframe_column_string_to_datetime(
+            df[event_timestamp], format=timestamp_format
+        )
+    except ValueError:
+        timestamps = None
+    if timestamps is None or pd.api.types.is_object_dtype(timestamps.dtype):
+        timestamps = pandas_utils.dataframe_column_string_to_datetime(
+            df[event_timestamp], format=timestamp_format, utc=True
+        )
+    df[event_timestamp] = timestamps
+    timestamp_timezone = getattr(timestamps.dtype, "tz", None)
 
     # Identify columns efficiently
     object_type_columns = [col for col in df.columns if col.startswith(object_type_prefix)]
@@ -181,7 +217,7 @@ def get_ocel_from_extended_table(
                 self._types = {
                     "event_id": pa_module.large_string(),
                     "event_activity": pa_module.large_string(),
-                    "event_timestamp": pa_module.timestamp("ns"),
+                    "event_timestamp": pa_module.timestamp("ns", tz=timestamp_timezone),
                     "object_id": pa_module.large_string(),
                     "object_type": pa_module.large_string(),
                 }
@@ -343,6 +379,7 @@ def get_ocel_from_extended_table(
             object_type_column: obj_types_list,
             object_id_column: obj_ids_list
         })
+        _disambiguate_typed_objects(objects_df, relations, object_id_column, object_type_column)
 
         # Free memory
         del obj_types_list, obj_ids_list, unique_objects

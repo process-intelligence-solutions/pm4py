@@ -34,6 +34,7 @@ import zipfile
 import pandas as pd
 
 from pm4py.objects.ocel import constants
+from pm4py.objects.ocel.importer.csv_rows import read_csv_rows
 from pm4py.objects.ocel.obj import OCEL
 from pm4py.objects.ocel.util import ocel_consistency
 from pm4py.util import constants as pm4_constants, exec_utils, pandas_utils
@@ -262,7 +263,7 @@ def _table_bytes(file_path: str, table_path: str) -> bytes:
 def _read_csv_table(data: bytes, encoding: str, table_path: str) -> pd.DataFrame:
     try:
         text = data.decode(encoding)
-        rows = list(csv.reader(io.StringIO(text, newline=""), dialect="excel", strict=True))
+        rows = read_csv_rows(io.StringIO(text, newline=""))
     except (UnicodeDecodeError, csv.Error) as exc:
         raise ValueError("Invalid UTF-8/RFC 4180 CSV table '%s'." % table_path) from exc
     if not rows:
@@ -359,6 +360,7 @@ def _read_table(
                 )
     else:
         try:
+            import pyarrow as pa
             import pyarrow.parquet as pq
         except ImportError as exc:
             raise ImportError("pyarrow is required for specification-compliant OCEL Parquet bundles.") from exc
@@ -369,16 +371,20 @@ def _read_table(
         fixed_names = {name for name, _ in fixed}
         for name, primitive_type in expected:
             field = schema.field(name)
-            if field.type != _arrow_type(primitive_type):
+            expected_type = _arrow_type(primitive_type)
+            # Some published bundles use nanoseconds for UTC timestamps.
+            utc_nanoseconds = primitive_type == "time" and field.type == pa.timestamp("ns", tz="UTC")
+            missing_attribute = name not in fixed_names and table[name].null_count == len(table)
+            if field.type != expected_type and not utc_nanoseconds and not missing_attribute:
                 raise ValueError(
                     "Parquet column '%s.%s' has type %s; expected %s."
-                    % (table_path, name, field.type, _arrow_type(primitive_type))
+                    % (table_path, name, field.type, expected_type)
                 )
             if name in fixed_names and field.nullable:
                 raise ValueError("Parquet fixed column '%s.%s' must be required." % (table_path, name))
             if name not in fixed_names and not field.nullable:
                 raise ValueError("Parquet attribute column '%s.%s' must be optional." % (table_path, name))
-        dataframe = table.select(expected_names).to_pandas()
+        dataframe = table.select(expected_names).to_pandas(types_mapper=pd.ArrowDtype)
 
     for name, primitive_type in expected:
         if primitive_type == "time":
@@ -415,7 +421,6 @@ def apply(file_path: str, parameters: Optional[Dict[Any, Any]] = None) -> OCEL:
     event_timestamp = exec_utils.get_param_value(Parameters.EVENT_TIMESTAMP, parameters, constants.DEFAULT_EVENT_TIMESTAMP)
     object_id = exec_utils.get_param_value(Parameters.OBJECT_ID, parameters, constants.DEFAULT_OBJECT_ID)
     object_type = exec_utils.get_param_value(Parameters.OBJECT_TYPE, parameters, constants.DEFAULT_OBJECT_TYPE)
-    internal_index = exec_utils.get_param_value(Parameters.INTERNAL_INDEX, parameters, constants.DEFAULT_INTERNAL_INDEX)
     qualifier = exec_utils.get_param_value(Parameters.QUALIFIER, parameters, constants.DEFAULT_QUALIFIER)
     changed_field = exec_utils.get_param_value(Parameters.CHANGED_FIELD, parameters, constants.DEFAULT_CHNGD_FIELD)
 
@@ -564,9 +569,7 @@ def apply(file_path: str, parameters: Optional[Dict[Any, Any]] = None) -> OCEL:
 
     for dataframe in (events, e2o, object_changes):
         if len(dataframe) > 0:
-            dataframe[internal_index] = dataframe.index
-            dataframe.sort_values([event_timestamp, internal_index], inplace=True)
-            del dataframe[internal_index]
+            dataframe.sort_values(event_timestamp, kind="stable", inplace=True)
 
     ocel = OCEL(
         events=events,
@@ -574,6 +577,16 @@ def apply(file_path: str, parameters: Optional[Dict[Any, Any]] = None) -> OCEL:
         relations=e2o,
         o2o=o2o,
         object_changes=object_changes,
+        globals={
+            constants.OCEL_EVTYPES_KEY: {
+                name: dict(descriptor["_attributes"])
+                for name, descriptor in meta["eventTypes"].items()
+            },
+            constants.OCEL_OBJTYPES_KEY: {
+                name: dict(descriptor["_attributes"])
+                for name, descriptor in meta["objectTypes"].items()
+            },
+        },
         parameters=parameters,
     )
     return ocel_consistency.apply(ocel, parameters=parameters)

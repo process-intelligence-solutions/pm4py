@@ -28,7 +28,6 @@ import pandas as pd
 from pm4py.objects.ocel import constants
 from pm4py.objects.ocel.obj import OCEL
 from pm4py.objects.ocel.util import compression
-from pm4py.objects.ocel.util import filtering_utils
 from pm4py.objects.ocel.util import ocel_consistency
 from pm4py.util import (
     exec_utils,
@@ -49,7 +48,12 @@ class Parameters(Enum):
     ENCODING = "encoding"
 
 
-def get_base_ocel(json_obj: Any, parameters: Optional[Dict[Any, Any]] = None):
+def get_base_ocel(
+    json_obj: Any,
+    parameters: Optional[Dict[Any, Any]] = None,
+    *,
+    preserve_attribute_types: bool = False,
+):
     events = []
     relations = []
     objects = []
@@ -72,9 +76,6 @@ def get_base_ocel(json_obj: Any, parameters: Optional[Dict[Any, Any]] = None):
     )
     object_type = exec_utils.get_param_value(
         Parameters.OBJECT_TYPE, parameters, constants.DEFAULT_OBJECT_TYPE
-    )
-    internal_index = exec_utils.get_param_value(
-        Parameters.INTERNAL_INDEX, parameters, constants.DEFAULT_INTERNAL_INDEX
     )
 
     parser = dt_parsing.parser.get()
@@ -120,23 +121,34 @@ def get_base_ocel(json_obj: Any, parameters: Optional[Dict[Any, Any]] = None):
                     object_id: obj,
                     object_type: types_dict[obj],
                 }
-        if constants.OCEL_TYPED_OMAP_KEY in ev:
-            for element in ev[constants.OCEL_TYPED_OMAP_KEY]:
-                if object_id in element:
-                    key1 = element[object_id]
-                    if key1 in this_rel:
-                        this_rel[key1][constants.DEFAULT_QUALIFIER] = element[
-                            constants.DEFAULT_QUALIFIER
-                        ]
-        for obj in this_rel:
-            relations.append(this_rel[obj])
+        qualified_objects = set()
+        for element in ev.get(constants.OCEL_TYPED_OMAP_KEY, []):
+            target = element.get(object_id)
+            if target in this_rel:
+                relations.append({
+                    **this_rel[target],
+                    constants.DEFAULT_QUALIFIER: element[constants.DEFAULT_QUALIFIER],
+                })
+                qualified_objects.add(target)
+        relations.extend(row for oid, row in this_rel.items() if oid not in qualified_objects)
         events.append(dct)
 
     if constants.OCEL_OBJCHANGES_KEY in json_obj:
         object_changes = json_obj[constants.OCEL_OBJCHANGES_KEY]
 
-    events = pandas_utils.instantiate_dataframe(events)
-    objects = pandas_utils.instantiate_dataframe(objects)
+    # In OCEL 2.0 the declared type applies to each value, even when the same
+    # column is sparse or has different declared types for different activities.
+    dtype = object if preserve_attribute_types else None
+    events = (
+        pandas_utils.instantiate_dataframe(events, dtype=dtype)
+        if events else pandas_utils.instantiate_dataframe(columns=[event_id, event_activity, event_timestamp])
+    )
+    if preserve_attribute_types and not events.empty:
+        events[event_timestamp] = events[event_timestamp].infer_objects()
+    objects = (
+        pandas_utils.instantiate_dataframe(objects, dtype=dtype)
+        if objects else pandas_utils.instantiate_dataframe(columns=[object_id, object_type])
+    )
     relations = pandas_utils.instantiate_dataframe(relations)
     # If there are no relations, ensure the dataframe has the expected schema
     # to avoid downstream crashes when accessing required columns.
@@ -151,22 +163,8 @@ def get_base_ocel(json_obj: Any, parameters: Optional[Dict[Any, Any]] = None):
             }
         )
 
-    events = pandas_utils.insert_index(
-        events, internal_index, reset_index=False, copy_dataframe=False
-    )
-    # Only add temporary index and sort if there are relations rows
-    if len(relations) > 0:
-        relations = pandas_utils.insert_index(
-            relations, internal_index, reset_index=False, copy_dataframe=False
-        )
-
-    events = events.sort_values([event_timestamp, internal_index])
-    if len(relations) > 0:
-        relations = relations.sort_values([event_timestamp, internal_index])
-
-    del events[internal_index]
-    if internal_index in relations.columns:
-        del relations[internal_index]
+    events = events.sort_values(event_timestamp, kind="stable")
+    relations = relations.sort_values(event_timestamp, kind="stable")
 
     globals = {}
     globals[constants.OCEL_GLOBAL_LOG] = json_obj[constants.OCEL_GLOBAL_LOG]
@@ -179,7 +177,7 @@ def get_base_ocel(json_obj: Any, parameters: Optional[Dict[Any, Any]] = None):
 
     o2o = pandas_utils.instantiate_dataframe(o2o) if o2o else None
     object_changes = (
-        pandas_utils.instantiate_dataframe(object_changes)
+        pandas_utils.instantiate_dataframe(object_changes, dtype=dtype)
         if object_changes
         else None
     )
@@ -241,8 +239,4 @@ def apply(file_path: str, parameters: Optional[Dict[Any, Any]] = None) -> OCEL:
     log = get_base_ocel(json_obj, parameters=parameters)
 
     log = ocel_consistency.apply(log, parameters=parameters)
-    log = filtering_utils.propagate_relations_filtering(
-        log, parameters=parameters
-    )
-
-    return log
+    return ocel_consistency.remove_dangling_relationships(log)
